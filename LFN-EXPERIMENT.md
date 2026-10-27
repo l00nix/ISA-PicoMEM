@@ -2,7 +2,7 @@
 
 I am developing this optional extension for my Amstrad PPC512 running ELKS,
 with AI coding assistance. This branch adds read-only long-name metadata to
-PicoMEM 2's DFS file service. It is not hardware validated or ready for merging.
+PicoMEM 2's DFS file service. Initial read-only tests on the PPC512 pass; it is not ready for merging.
 The paired client lives in [picomem-elks](https://github.com/l00nix/picomem-elks/tree/codex/long-filename-prototype).
 
 ## Compatibility and limits
@@ -64,7 +64,26 @@ cmake --build build-lfn
 Default target is PicoMEM 2 / RP2350 with 16 MiB flash. Do not use this image on
 PicoMEM 1.x. Building produces `picomem.uf2`; it does not flash anything.
 
-## Validation so far
+## Initial hardware result, 27 October 2026
+
+The complete original flash was backed up and verified before flashing. The
+experimental firmware boots the PPC512, networking works, and its exact ROM
+descriptor is visible to the paired kernel. Read-only USB and SD mounts list
+long names and read nested long-name paths. USB reads through a long name,
+short alias and uppercase spelling produce matching hashes. Both volumes
+unmount and remount successfully. A USB writable mount retains aliases and
+unmounts successfully; no USB/SD writes were exercised in this LFN test.
+
+[Hardware report, artifact hashes and native screenshot](https://github.com/l00nix/picomem-elks/blob/codex/long-filename-prototype/docs/LONG-FILENAMES.md).
+
+The newer upstream initialization forces `PSRAM_Ext=0` when `USE_SPI_PSRAM`
+is disabled for PicoMEM 2; this differs from the previously installed June 21
+firmware. The LFN patch does not alter that code. Conventional SRAM emulation
+remains active. DOS compatibility, precise service/interrupt latency, media
+changes, controlled hardware edge cases and restoring the backup remain
+untested, so this is a limited functional result.
+
+## Build and host validation
 
 - Both complete default and LFN firmware builds pass. LFN adds 2,336 flash
   bytes; linked RAM remains 377,048 bytes. This is build fit, not a stack or
@@ -88,8 +107,8 @@ python3 tools/test-lfn-rom.py
 
 Before hardware installation, save the actual installed flash image, preserve
 ELKS's current kernel and PPC display extension, and use a small disposable
-USB fixture read-only first. Firmware boot, DOS compatibility, real USB/SD
-latency, unplug behavior and recovery remain untested. I am seeking review of
+USB fixture read-only first. DOS compatibility, precise USB/SD latency, unplug behavior and restoring the
+backup remain untested. I am seeking review of
 the capability advertisement and command allocation before treating this as a
 stable interface.
 
