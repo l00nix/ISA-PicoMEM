@@ -83,6 +83,10 @@ pico_sdk_init()
 ####### Add the Sub directories containing libraries  ########
 
 add_subdirectory(lib/FatFs_SPI)
+option(PICOMEM_EXPERIMENTAL_LFN "Experimental l00nix DFS long names (PicoMEM 2 only)" OFF)
+if(PICOMEM_EXPERIMENTAL_LFN AND NOT PICOMEM_BOARD STREQUAL "PICOMEM_20")
+    message(FATAL_ERROR "Experimental LFN descriptor is audited for PicoMEM 2 only")
+endif()
 add_subdirectory(rom)                       # PicoMEM BIOS binary
 add_subdirectory(isa_devices)               # all ISA devices IO and MEM code
 add_subdirectory(audio_devices)

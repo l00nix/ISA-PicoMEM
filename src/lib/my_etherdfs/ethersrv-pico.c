@@ -79,6 +79,9 @@ const unsigned char F_AM_CONVERT[4] = {FA_READ,FA_WRITE,FA_READ+FA_WRITE,FA_READ
 #endif
 
 #include "fs.h"
+#ifdef PICOMEM_EXPERIMENTAL_LFN
+#include "lfn/dispatch.h"
+#endif
 
 /* answer cache - last answers sent to clients - used if said client didn't
  * receive my answer, and re-sends his requests so I don't process this
@@ -743,6 +746,10 @@ void ethdfs_docmd(uint8_t *buffer)
 
   //for (int i=52;i<60;i++) printf("%x,",buffer[i]);
 
+#ifdef PICOMEM_EXPERIMENTAL_LFN
+  /* Only our provisional DFS subfunction is intercepted; legacy frames stay unchanged. */
+  if (pm_lfn_dispatch(buffer, 316)) return;
+#endif
   ret=process(buffer);
  
   ((uint16_t *)buffer)[26]=ret;   // Return the response size or error (negative value)
