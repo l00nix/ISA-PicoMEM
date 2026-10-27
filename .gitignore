@@ -1,3 +1,7 @@
 .vscode
 build
 *.LST
+/build-*/
+/src/lib/tinyusb/
+/src/lib/tusb_xinput/
+__pycache__/
