@@ -3,16 +3,23 @@
 Usage: python3 experimental/lfn/test-fatfs.py /path/to/ISA-PicoMEM
 Requires a C compiler and mtools (mformat, mcopy, mmd).
 """
-import os, pathlib, subprocess, sys, tempfile
+import os, pathlib, subprocess, sys, tempfile, argparse
 kit=pathlib.Path(__file__).resolve().parent
-if len(sys.argv)!=2: raise SystemExit(__doc__)
-source=pathlib.Path(sys.argv[1]).resolve()/"src/lib/FatFs_SPI/ff15/source"
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('source')
+parser.add_argument('--fat32',action='store_true')
+args=parser.parse_args()
+source=pathlib.Path(args.source).resolve()/"src/lib/FatFs_SPI/ff15/source"
 cc=os.environ.get('CC','cc')
 def run(*args):subprocess.run(list(map(str,args)),check=True)
 with tempfile.TemporaryDirectory(prefix='pm-lfn-fatfs-') as d:
     tmp=pathlib.Path(d); image=tmp/'fixture.img';payload=tmp/'payload.txt'
     payload.write_bytes(b'LFN fixture\n')
-    run('mformat','-C','-i',image,'-f','1440','::')
+    if args.fat32:
+        with image.open('wb') as f:f.truncate(64*1024*1024)
+        run('mformat','-i',image,'-F','::')
+    else:
+        run('mformat','-C','-i',image,'-f','1440','::')
     for name in ('Long Filename.txt','Mixed Case.txt','This filename exceeds 26 bytes.txt','Cafe Long Filename é.txt'):
         run('mcopy','-i',image,payload,'::'+name)
     run('mmd','-i',image,'::Long Directory')

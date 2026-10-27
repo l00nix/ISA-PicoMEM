@@ -72,7 +72,7 @@ PicoMEM 1.x. Building produces `picomem.uf2`; it does not flash anything.
 - 498 payload/adapter checks and 10,000 malformed requests pass with ASan/UBSan.
 - 692 dispatcher checks cover bounds, invalid framing, both drives and byte-for-
   byte passthrough of all other DFS command values.
-- Tests using the actual FatFs source and a generated FAT12 image pass for
+- Tests using the actual FatFs source and generated FAT12 and FAT32 images pass for
   USB/SD selection, nested alias reads, Unicode/length fallback and independent
   directory cursors. The test block layer records zero writes.
 - ROM identity, padding, checksum and unaudited-source refusal tests pass.
@@ -82,6 +82,7 @@ PicoMEM 1.x. Building produces `picomem.uf2`; it does not flash anything.
 ```sh
 sh src/lib/my_etherdfs/lfn/test.sh
 python3 src/lib/my_etherdfs/lfn/test-fatfs.py .
+python3 src/lib/my_etherdfs/lfn/test-fatfs.py . --fat32
 python3 tools/test-lfn-rom.py
 ```
 
