@@ -6,8 +6,8 @@ empty-file creation and mkdir, not rename or SD writes. It has now been flashed
 and tested on the PPC512 with the paired ELKS kernel.
 Long-name creation, writes, deletion, remount and normal reboot tests passed.
 Direct Mac content reads and a FAT consistency check also passed. Long-name and
-8.3 alias readbacks also passed after returning the stick to PicoMEM. DOS checks of this
-build remain pending.
+8.3 alias readbacks also passed after returning the stick to PicoMEM. MS-DOS 6.22
+alias reads and a temporary legacy create/append/truncate/delete test passed.
 
 ## Wire contract
 
@@ -109,6 +109,9 @@ describe the test scope. After clean unmount and transfer to the Mac, native
 filesystem reads matched every expected byte and `fsck_msdos -n` returned 0.
 After returning the stick to PicoMEM, all three long paths and their short
 aliases returned identical expected bytes in ELKS. DOS compatibility of this
-particular build, runtime stack/latency measurements and power-loss behavior
-remain unverified. This does not make the candidate a release candidate
+particular build has now passed a bounded smoke test: all three fixture aliases
+returned their expected complete contents, a HDD root directory read succeeded,
+and a fresh temporary 8.3 file passed create, append, truncate/rewrite and delete
+checks. The retained fixtures were unchanged. Runtime stack/latency measurements
+and power-loss behavior remain unverified. This does not make the candidate a release candidate
 or change the separate metadata-only draft PR.
