@@ -14,6 +14,7 @@ FRESULT f_open(FIL *,const char *,unsigned char);
 FRESULT f_sync(FIL *);
 FRESULT f_close(FIL *);
 FRESULT f_mkdir(const char *);
+FRESULT f_rename(const char *,const char *);
 typedef struct { unsigned long fsize; unsigned char fattrib; char altname[13],fname[256]; } FILINFO;
 typedef struct { unsigned pos; } DIR;
 FRESULT f_opendir(DIR *,const char *);

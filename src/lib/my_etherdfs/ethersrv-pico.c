@@ -83,6 +83,9 @@ const unsigned char F_AM_CONVERT[4] = {FA_READ,FA_WRITE,FA_READ+FA_WRITE,FA_READ
 #include "lfn/dispatch.h"
 #ifdef PICOMEM_EXPERIMENTAL_LFN_CREATE
 #include "lfn/create.h"
+#ifdef PICOMEM_EXPERIMENTAL_LFN_RENAME
+#include "lfn/rename.h"
+#endif
 #endif
 #endif
 
@@ -754,6 +757,9 @@ void ethdfs_docmd(uint8_t *buffer)
   if (pm_lfn_dispatch(buffer, 316)) return;
 #ifdef PICOMEM_EXPERIMENTAL_LFN_CREATE
   if (pm_lfn_create_dispatch(buffer, 316)) return;
+#ifdef PICOMEM_EXPERIMENTAL_LFN_RENAME
+  if (pm_lfn_rename_dispatch(buffer, 316)) return;
+#endif
 #endif
 #endif
   ret=process(buffer);

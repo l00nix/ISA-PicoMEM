@@ -115,3 +115,7 @@ and a fresh temporary 8.3 file passed create, append, truncate/rewrite and delet
 checks. The retained fixtures were unchanged. Runtime stack/latency measurements
 and power-loss behavior remain unverified. This does not make the candidate a release candidate
 or change the separate metadata-only draft PR.
+
+The next, separate [rename candidate](LFN-RENAME-EXPERIMENT.md) builds on this
+creation work. Rename itself is not yet hardware-tested; its default-off flag
+and descriptor are independent of the creation command.

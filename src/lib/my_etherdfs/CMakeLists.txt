@@ -24,3 +24,8 @@ if(PICOMEM_EXPERIMENTAL_LFN_CREATE)
         ${CMAKE_CURRENT_LIST_DIR}/lfn/create.c
         ${CMAKE_CURRENT_LIST_DIR}/lfn/create-fatfs.c)
 endif()
+
+if(PICOMEM_EXPERIMENTAL_LFN_RENAME)
+ target_compile_definitions(pm_etherdfs INTERFACE PICOMEM_EXPERIMENTAL_LFN_RENAME=1)
+ target_sources(pm_etherdfs INTERFACE ${CMAKE_CURRENT_LIST_DIR}/lfn/rename.c ${CMAKE_CURRENT_LIST_DIR}/lfn/rename-fatfs.c)
+endif()
