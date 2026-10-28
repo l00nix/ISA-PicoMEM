@@ -17,9 +17,13 @@ set_target_properties(pmbios PROPERTIES IMPORTED_OBJECTS "${CMAKE_CURRENT_BINARY
 # Experimental descriptor occupies verified FF padding; default builds use stock ROM.
 if(PICOMEM_EXPERIMENTAL_LFN)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(LFN_CREATE_ARG "")
+    if(PICOMEM_EXPERIMENTAL_LFN_CREATE)
+        set(LFN_CREATE_ARG "--create")
+    endif()
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/pm2bios.bin
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../../tools/stamp-lfn-rom.py
-            ${CMAKE_CURRENT_LIST_DIR}/pm2bios.bin ${CMAKE_CURRENT_BINARY_DIR}/pm2bios.bin
+            ${CMAKE_CURRENT_LIST_DIR}/pm2bios.bin ${CMAKE_CURRENT_BINARY_DIR}/pm2bios.bin ${LFN_CREATE_ARG}
         DEPENDS ${CMAKE_CURRENT_LIST_DIR}/pm2bios.bin
             ${CMAKE_CURRENT_LIST_DIR}/../../tools/stamp-lfn-rom.py)
 else()

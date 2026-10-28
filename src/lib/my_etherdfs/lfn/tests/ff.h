@@ -6,6 +6,14 @@ typedef int FRESULT;
 #define FR_NO_FILE 4
 #define FR_NO_PATH 5
 #define FR_DISK_ERR 1
+#define FR_EXIST 8
+#define FA_WRITE 2
+#define FA_CREATE_NEW 4
+typedef struct { int open; } FIL;
+FRESULT f_open(FIL *,const char *,unsigned char);
+FRESULT f_sync(FIL *);
+FRESULT f_close(FIL *);
+FRESULT f_mkdir(const char *);
 typedef struct { unsigned long fsize; unsigned char fattrib; char altname[13],fname[256]; } FILINFO;
 typedef struct { unsigned pos; } DIR;
 FRESULT f_opendir(DIR *,const char *);

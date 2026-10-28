@@ -87,6 +87,10 @@ option(PICOMEM_EXPERIMENTAL_LFN "Experimental l00nix DFS long names (PicoMEM 2 o
 if(PICOMEM_EXPERIMENTAL_LFN AND NOT PICOMEM_BOARD STREQUAL "PICOMEM_20")
     message(FATAL_ERROR "Experimental LFN descriptor is audited for PicoMEM 2 only")
 endif()
+option(PICOMEM_EXPERIMENTAL_LFN_CREATE "Experimental USB long-name creation" OFF)
+if(PICOMEM_EXPERIMENTAL_LFN_CREATE AND NOT PICOMEM_EXPERIMENTAL_LFN)
+    message(FATAL_ERROR "LFN creation requires the paired metadata extension")
+endif()
 add_subdirectory(rom)                       # PicoMEM BIOS binary
 add_subdirectory(isa_devices)               # all ISA devices IO and MEM code
 add_subdirectory(audio_devices)

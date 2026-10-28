@@ -5,6 +5,15 @@ with AI coding assistance. This branch adds read-only long-name metadata to
 PicoMEM 2's DFS file service. Initial read-only tests on the PPC512 pass; it is not ready for merging.
 The paired client lives in [picomem-elks](https://github.com/l00nix/picomem-elks/tree/codex/long-filename-prototype).
 
+## Next experiment
+
+This branch also contains a separately gated [USB creation candidate](LFN-CREATE-EXPERIMENT.md).
+The sections below describe the metadata extension and its earlier hardware tests.
+The latest ELKS-only update has validated writes to existing long names without
+changing that firmware; see the [28 October report](https://github.com/l00nix/picomem-elks/blob/codex/long-filename-prototype/docs/HARDWARE-LFN-RW-20261028.md).
+New long-name creation is host-tested only and is not included in the current
+metadata-only PR.
+
 ## Compatibility and limits
 
 `PICOMEM_EXPERIMENTAL_LFN` defaults OFF. With it OFF, no handler or discovery
