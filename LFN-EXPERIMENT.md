@@ -23,8 +23,9 @@ checks unused FF padding, and adjusts the BIOS checksum. Source BIOS bytes are
 not overwritten. The descriptor location needs maintainer review.
 
 The response carries at most 26 ASCII bytes, matching ELKS's current directory
-ABI. Spaces and mixed case are supported. Longer/Unicode names retain their
-8.3 aliases; names are never truncated. The ELKS client retains aliases for
+ABI. Spaces and mixed case are supported. Longer/Unicode names retain supported
+ASCII 8.3 aliases; names are never truncated. Non-ASCII legacy aliases have a
+known directory-scan failure in the paired client (see below). The ELKS client retains aliases for
 all legacy file operations, resolves sibling collisions before publication,
 and enables long names only on read-only mounts. USB write mounts keep aliases.
 This does not create or rename long filenames.
@@ -76,12 +77,31 @@ unmounts successfully; no USB/SD writes were exercised in this LFN test.
 
 [Hardware report, artifact hashes and native screenshot](https://github.com/l00nix/picomem-elks/blob/codex/long-filename-prototype/docs/LONG-FILENAMES.md).
 
+A controlled Kingston FAT32 fixture now passes 12/13/26-character ASCII names,
+27/44-character alias fallback, spaces, case-insensitive lookup, hidden files,
+two nested long parents and distinct files with similar prefixes. Twenty-one
+reads through long names, case variants and aliases match Mac SHA-256 references
+for 14 distinct files. Two native read/seek/EOF tests pass and refuse write-only
+opens. Unmount/remount and unmounted USB moves to the Mac and back work without
+a PPC reboot. No ELKS writes to USB/SD were performed in this fixture session.
+
+The fixture also exposes a **known failure, not fixed by this patch**:
+`Café notes.txt` has a non-ASCII short alias. The legacy DFS FCB contains UTF-8
+bytes `c3 a9`; the paired client's ASCII-only component parser rejects it and
+discards the entire containing directory snapshot before LFN lookup. Existing
+files elsewhere remain readable. I isolated this file in `UNIBAD` on the Mac
+to continue testing. A separate Unicode filename with ASCII alias
+`UNICOD~2.TXT` reads correctly through that alias. Unicode fallback therefore
+requires a supported ASCII alias; full Unicode names are not supported.
+The hardware report includes the failed reply, failure screenshot and successful
+boundary/nested-read screenshots. No firmware or kernel code changed for these tests.
+
 The newer upstream initialization forces `PSRAM_Ext=0` when `USE_SPI_PSRAM`
 is disabled for PicoMEM 2; this differs from the previously installed June 21
 firmware. The LFN patch does not alter that code. Conventional SRAM emulation
-remains active. DOS compatibility, precise service/interrupt latency, media
-changes, controlled hardware edge cases and restoring the backup remain
-untested, so this is a limited functional result.
+remains active. DOS compatibility, precise service/interrupt latency,
+hot-unplug while mounted, adversarial hardware name collisions and restoring
+the backup remain untested, so this is a limited functional result.
 
 ## Build and host validation
 
