@@ -2,10 +2,12 @@
 
 I am developing this next experiment as l00nix, with AI coding assistance.
 It is separate from the metadata-only draft PR. This candidate adds exclusive
-empty-file creation and mkdir, not rename or SD writes. It has now been flashed and tested on the PPC512 with the paired ELKS kernel.
+empty-file creation and mkdir, not rename or SD writes. It has now been flashed
+and tested on the PPC512 with the paired ELKS kernel.
 Long-name creation, writes, deletion, remount and normal reboot tests passed.
-Direct Mac content reads and a FAT consistency check also passed. Short-alias
-access and DOS checks of this build remain pending.
+Direct Mac content reads and a FAT consistency check also passed. Long-name and
+8.3 alias readbacks also passed after returning the stick to PicoMEM. DOS checks of this
+build remain pending.
 
 ## Wire contract
 
@@ -105,6 +107,8 @@ a clean reboot. SD remained read-only.
 [ELKS hardware evidence and screenshot](https://github.com/l00nix/picomem-elks/blob/codex/long-name-create/docs/LONG-NAME-CREATION.md#ppc512-results-28-october-2026)
 describe the test scope. After clean unmount and transfer to the Mac, native
 filesystem reads matched every expected byte and `fsck_msdos -n` returned 0.
-Short-alias access, DOS compatibility of this particular build, runtime
-stack/latency measurements and power-loss behavior remain unverified. This does not make the candidate a release candidate
+After returning the stick to PicoMEM, all three long paths and their short
+aliases returned identical expected bytes in ELKS. DOS compatibility of this
+particular build, runtime stack/latency measurements and power-loss behavior
+remain unverified. This does not make the candidate a release candidate
 or change the separate metadata-only draft PR.
