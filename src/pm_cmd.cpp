@@ -24,6 +24,9 @@ If not, see <https://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <string.h>
 #include "pico/stdlib.h"
+#ifdef PICOMEM_EXPERIMENTAL_DIAG
+#include "lib/my_etherdfs/diag/diag.h"
+#endif
 #include "pico/multicore.h"
 #include "hardware/irq.h"
 #include "hardware/vreg.h"
@@ -1343,10 +1346,15 @@ void PM_ExecCMD()
 
     case CMD_EthDFS_Send :  // EtherDFS packet exchange
        pm_led(1);
-
+#ifdef PICOMEM_EXPERIMENTAL_DIAG
+       pm_diag_begin((const unsigned char*)&PM_ETHDFS_BUFF);
+#endif
        ethdfs_docmd((uint8_t*)&PM_ETHDFS_BUFF);
 
        PM_PICO_EnablePSRAM();   // Re enable the PSRAM for the Memory emulation (In case it is disabled)
+#ifdef PICOMEM_EXPERIMENTAL_DIAG
+       pm_diag_end();
+#endif
        pm_led(0);
        PM_Status=STAT_READY;
      break;

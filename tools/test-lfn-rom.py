@@ -30,3 +30,11 @@ try:m.stamp(b,False,True)
 except ValueError:pass
 else:raise AssertionError('Rename without creation accepted')
 print('Independent rename descriptor, unchanged earlier descriptors, checksum and dependency passed')
+d=m.stamp(b,True,True,True)
+assert d[m.DIAG_OFFSET:m.DIAG_OFFSET+16]==m.DIAG_DESCRIPTOR
+assert d[m.OFFSET:-1]==r[m.OFFSET:-1] and d[:m.DIAG_OFFSET]==b[:m.DIAG_OFFSET]
+assert sum(d)%256==0
+try:m.stamp(b,True,False,True)
+except ValueError:pass
+else:raise AssertionError('Diagnostics without rename accepted')
+print('Independent diagnostic descriptor, unchanged file-service markers and checksum passed')

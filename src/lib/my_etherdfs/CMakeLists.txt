@@ -1,4 +1,8 @@
 add_library(pm_etherdfs INTERFACE)
+if(PICOMEM_EXPERIMENTAL_DIAG)
+ target_compile_definitions(pm_etherdfs INTERFACE PICOMEM_EXPERIMENTAL_DIAG=1)
+ target_sources(pm_etherdfs INTERFACE ${CMAKE_CURRENT_LIST_DIR}/diag/diag.c ${CMAKE_CURRENT_LIST_DIR}/diag/platform.c)
+endif()
 
 target_sources(pm_etherdfs INTERFACE
             ${CMAKE_CURRENT_LIST_DIR}/ethersrv-pico.c

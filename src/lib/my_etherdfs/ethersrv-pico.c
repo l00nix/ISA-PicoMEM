@@ -42,6 +42,9 @@
 //#include <sys/ioctl.h>
 //#include <sys/socket.h>
 #include <stdint.h>          /* uint16_t, uint32_t */
+#ifdef PICOMEM_EXPERIMENTAL_DIAG
+#include "diag/diag.h"
+#endif
 //#include <stdlib.h>          /* realpath() */
 //#include <time.h>            /* time() */
 //#include <unistd.h>          /* close(), getopt(), optind */
@@ -752,6 +755,9 @@ void ethdfs_docmd(uint8_t *buffer)
 
   //for (int i=52;i<60;i++) printf("%x,",buffer[i]);
 
+#ifdef PICOMEM_EXPERIMENTAL_DIAG
+  if (pm_diag_dispatch(buffer,316)) return;
+#endif
 #ifdef PICOMEM_EXPERIMENTAL_LFN
   /* Only our provisional DFS subfunction is intercepted; legacy frames stay unchanged. */
   if (pm_lfn_dispatch(buffer, 316)) return;

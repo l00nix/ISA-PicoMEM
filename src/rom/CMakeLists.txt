@@ -22,12 +22,16 @@ if(PICOMEM_EXPERIMENTAL_LFN)
         set(LFN_CREATE_ARG "--create")
     endif()
     set(LFN_RENAME_ARG "")
+    set(DIAG_ARG "")
+    if(PICOMEM_EXPERIMENTAL_DIAG)
+        set(DIAG_ARG "--diag")
+    endif()
     if(PICOMEM_EXPERIMENTAL_LFN_RENAME)
         set(LFN_RENAME_ARG "--rename")
     endif()
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/pm2bios.bin
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../../tools/stamp-lfn-rom.py
-            ${CMAKE_CURRENT_LIST_DIR}/pm2bios.bin ${CMAKE_CURRENT_BINARY_DIR}/pm2bios.bin ${LFN_CREATE_ARG} ${LFN_RENAME_ARG}
+            ${CMAKE_CURRENT_LIST_DIR}/pm2bios.bin ${CMAKE_CURRENT_BINARY_DIR}/pm2bios.bin ${LFN_CREATE_ARG} ${LFN_RENAME_ARG} ${DIAG_ARG}
         DEPENDS ${CMAKE_CURRENT_LIST_DIR}/pm2bios.bin
             ${CMAKE_CURRENT_LIST_DIR}/../../tools/stamp-lfn-rom.py)
 else()
