@@ -1,6 +1,6 @@
 {
   "date": "2026-10-29",
-  "status": "Transport detail diagnostic built and host-tested; hardware pending; RW release blocked",
+  "status": "MODE SENSE(6) DATA/residue mismatch; device CSW status 0; cache unknown; RW release blocked",
   "branch": "codex/usb-sync-lifetime",
   "firmware_base_commit": "53de95936c65e7e677faa454ce226e5fb2ca2dab",
   "candidate_artifacts_sha256": {
@@ -38,7 +38,7 @@
     "core0_stack_reserved": 4096,
     "core1_stack_reserved": 2048,
     "option_off_uf2_unchanged": true,
-    "hardware": "pending; candidate not flashed"
+    "hardware": "Boot, eight file readbacks and cached report passed; one mkdir failed with MODE SENSE DATA/residue mismatch; USB unmounted"
   },
   "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
   "memory": {
@@ -47,5 +47,134 @@
     "scratch_x_bytes": 3748,
     "scratch_y_bytes": 4096
   },
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "hardware": {
+    "date": "2026-10-29",
+    "status": "MODE SENSE(6) DATA/residue mismatch; device CSW status 0; cache unknown; RW release blocked",
+    "firmware_source_commit": "b36516c92f9e80a175536ca3e9ba188cb447c247",
+    "firmware_sha256": "9e3bcebd0e229a3025754676eb2d2f9f6269b5aed15bcebda62b280346677106",
+    "kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+    "new_kernel_installed": false,
+    "recovery_backup_verified": true,
+    "firmware_readback_verified": true,
+    "usb_detected_on_boot": true,
+    "reconnect_needed": false,
+    "read_only_baseline": {
+      "RN28A/Renamed Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d771c7166dc97e2f4e636afb5d4df8f57865c48ddf5095af12cd3b2153576a47"
+      },
+      "RN28A/Keep This File.txt": {
+        "bytes": 4,
+        "sha256": "6ca7ea2feefc88ecb5ed6356ed963f47dc9137f82526fdd25d618ea626d0803f"
+      },
+      "LFN Create 28/Created Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d45c5305b8dd48af787ecfd75dcbedbdf6fca682fef83824fb39c5372eafd441"
+      },
+      "LFN Create 28/Nested Long Directory/Child With Spaces.txt": {
+        "bytes": 1025,
+        "sha256": "984c5645a309dbba620349f0efaa17f16288cf8181d91b13efcdc2d9f6dbd2d4"
+      },
+      "LFN Create 28/N26-xxxxxxxxxxxxxxxxxx.txt": {
+        "bytes": 73,
+        "sha256": "fd13e0d898623dfd06aa25d9aeb4e414079f7a2a05be7a5c4ea188a834d7e773"
+      },
+      "PMBEN29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMDIAG29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMERR29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      }
+    },
+    "trigger": {
+      "command": "mkdir /mnt/usb/PMTRN29",
+      "exit_code": 1,
+      "native_error": "/mnt/usb/PMTRN29: cannot create directory",
+      "fresh_name_absent_from_read_only_root_listing": true,
+      "attempts": 1
+    },
+    "raw_status_lines": [
+      "?USB fault op=35 f=2 s=1 r=0 d=0 rs=70:5/20/00 n=18 c6=phase c10=-",
+      "USB fault op=1a tag=427 why=8 stage=3 event=0",
+      "USB xfer ep=81/81 got=13 want=13 data=4",
+      "USB CSW checks=1f status=0 residue=0"
+    ],
+    "first_fault": {
+      "opcode_hex": "35",
+      "category": 2,
+      "status": 1,
+      "residue": 0,
+      "dirty": 0
+    },
+    "request_sense": {
+      "format_hex": "70",
+      "key_hex": "5",
+      "asc_hex": "20",
+      "ascq_hex": "00",
+      "bytes": 18
+    },
+    "cache_mode": {
+      "c6": "phase",
+      "c10": "-",
+      "wce": "unknown"
+    },
+    "transport": {
+      "opcode_hex": "1a",
+      "tag": 427,
+      "reason": 8,
+      "reason_name": "DATA/residue mismatch",
+      "stage": 3,
+      "stage_name": "CSW",
+      "event": 0,
+      "event_name": "success",
+      "endpoint_hex": "81",
+      "expected_endpoint_hex": "81",
+      "event_bytes": 13,
+      "expected_event_bytes": 13,
+      "data_bytes": 4,
+      "command_data_allocation": 64,
+      "csw_checks_hex": "1f",
+      "csw_status": 0,
+      "csw_residue": 0,
+      "synthetic_phase_error": true,
+      "device_phase_error": false,
+      "raw_data_bytes_captured": false
+    },
+    "interpretation": "Checked TinyUSB recorded a successful 13-byte CSW with signature/tag/status/residue bounds valid but DATA/residue agreement missing. Four DATA bytes were recorded for a 64-byte allocation, while the raw device CSW reports status 0/residue 0. This created synthetic status 2 and stopped the alternate query. No bus capture or raw mode bytes; device-versus-host origin of the mismatch remains unresolved.",
+    "cache_mode_known": false,
+    "no_sector_write_submitted_by_this_attempt": {
+      "inferred": true,
+      "basis": "First-write flush failure returned before WRITE(10); original fault dirty=0; audited control flow and cached response, no physical USB trace"
+    },
+    "write_retry": false,
+    "cache_settings_changed": false,
+    "usb_unmounted_successfully": true,
+    "sd_mounted_or_written": false,
+    "physical_fault_injection": false,
+    "initial_stack": {
+      "firmware_used": 1632,
+      "firmware_reserved": 4096,
+      "kernel_used": 418,
+      "kernel_reserved": 700,
+      "flags": 0,
+      "invalid": 0
+    },
+    "runtime_fault_stack_peak": "not measured",
+    "screenshot": {
+      "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount/pmstat, explicitly saved native error, summary from verified baseline",
+      "video_sha256": "a10844d8273a4789c1de5e7ee0b9355d52bf0a5f65fd9a0e2938a427fb0628f4",
+      "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+      "png_sha256": "a8b4894d874948d9948bae20415f44da744661c33422724362c20f273489e490"
+    },
+    "next_step": "Prepare bounded raw mode-response capture and consider MODE SENSE(10) as the first cache query on a fresh boot; retain strict transport checks and write quarantine. No automatic retry after the ambiguous MODE SENSE(6), no sync bypass.",
+    "mac_fat_check": "pending",
+    "dos_compatibility": "pending"
+  }
 }
