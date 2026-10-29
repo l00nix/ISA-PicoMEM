@@ -124,3 +124,5 @@ MODE SENSE(10) as the **first** cache query on a fresh boot. That would test the
 alternate command without continuing after this ambiguous MODE SENSE(6) response.
 It is not implemented or flashed yet. Strict transport checks, write quarantine
 and the flush requirement remain; no cache-setting change or write retry was made.
+
+The [MODE SENSE(10)-first / raw-prefix follow-up](USB-MODE10-PREFIX.md) is now built and host-tested; hardware validation is pending.

@@ -148,6 +148,40 @@ int main(void)
   assert(!msch_xfer_cb(1,variant==2?2:0x81,XFER_RESULT_SUCCESS,8));
   assert(completed==1&&status==2);tests++;
  }
+ /* MODE SENSE snapshots: every bounded length, independent of CSW residue,
+  * plus wrong endpoint/event/oversize/null-buffer exclusions and late overwrite. */
+ for(unsigned ten=0;ten<2;ten++)for(unsigned received=0;received<=65;received++)
+ for(unsigned variant=0;variant<6;variant++) {
+  setup(MSC_STAGE_DATA);msc_cbw_t*c=&get_epbuf(1)->cbw;
+  c->total_bytes=64;c->cmd_len=ten?10:6;c->command[0]=ten?0x5a:0x1a;
+  c->command[1]=8;c->command[2]=8;c->command[ten?8:4]=64;
+  for(unsigned j=0;j<sizeof(data);j++)data[j]=(uint8_t)(j+1);
+  if(variant==3)get_itf(1)->buffer=NULL;
+  if(variant==4)c->command[2]=0x48; /* Not this bounded current-page query. */
+  unsigned ep=variant==1?0x82:0x81;
+  xfer_result_t event=variant==2?XFER_RESULT_FAILED:XFER_RESULT_SUCCESS;
+  bool ok=msch_xfer_cb(1,ep,event,received);
+  bool sampled=variant!=1&&variant!=2&&variant!=3&&variant!=4&&received<=64;
+  if(ok){
+   memset(data,0xee,sizeof(data)); /* No read from this changed buffer at CSW. */
+   get_epbuf(1)->csw.data_residue=variant==5?0:64-received;
+   (void)msch_xfer_cb(1,0x81,XFER_RESULT_SUCCESS,13);
+  }
+  tuh_msc_checked_fault_t f;
+  assert(tuh_msc_get_checked_reply(1,123,&f));
+  assert(!tuh_msc_get_checked_reply(0,123,&f));
+  assert(!tuh_msc_get_checked_reply(255,123,&f));
+  assert(!tuh_msc_get_checked_reply(1,124,&f));
+  assert(!tuh_msc_get_checked_reply(1,123,NULL));
+  unsigned n=sampled?(received>16?16:received):0;
+  assert(f.sample_length==n);
+  for(unsigned j=0;j<16;j++)assert(f.sample[j]==(j<n?j+1:0));
+  if(variant==5&&received<64)assert(f.reason==8&&f.data_bytes==received&&f.residue==0);
+  if(variant==0&&received<=64)assert(f.reason==0&&f.checks==63);
+  assert(!msch_xfer_cb(1,0x81,XFER_RESULT_SUCCESS,64));
+  tuh_msc_checked_fault_t after;assert(tuh_msc_get_checked_reply(1,123,&after));
+  assert(!memcmp(&after,&f,sizeof(f)));tests++;
+ }
  /* The next command resets only the driver snapshot; no additional command
   * is submitted by the getter. The adapter owns its permanent copy. */
  setup(MSC_STAGE_DATA);assert(!msch_xfer_cb(1,0x81,XFER_RESULT_STALLED,0));
@@ -155,6 +189,8 @@ int main(void)
  msc_cbw_t q=get_epbuf(1)->cbw;q.tag=456;
  assert(tuh_msc_scsi_command(1,&q,data,done,456));
  assert(!tuh_msc_get_checked_fault(1,123,&f)&&!tuh_msc_get_checked_fault(1,456,&f));
- assert(submitted==1);tests++;
+ assert(submitted==1);
+ assert(!tuh_msc_get_checked_reply(1,456,&f));
+ assert(!get_itf(1)->pm_sample_length);tests++;
  printf("PASS actual TinyUSB MSC: %u completion/length/status cases\n",tests);return 0;
 }

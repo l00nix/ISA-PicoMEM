@@ -22,10 +22,10 @@ with tempfile.TemporaryDirectory(prefix='pm-usb-sync-') as d:
         run(tmp/'adapter',op,mode);count+=1
     for mode in ('fixed','field','unit','deferred','validbit','descriptor','desc_deferred','short','short_header','advertised','format','status','phase','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','detach','reject','skip_ready','skip_tag'):
         run(tmp/'adapter','write','sense_'+mode);count+=1
-    for prefix in ('cache_','cache10_'):
-        for mode in ('off','on','ps','block','padded','status','phase','short','empty','length','total_small','descriptor','desc_odd','media','page','spf','page_short','page_long','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','disconnect','reject'):
+    for prefix in ('cache_','cache6_'):
+        for mode in ('off','on','ps','mismatch','block','padded','status','phase','short','empty','length','total_small','descriptor','desc_odd','media','page','spf','page_short','page_long','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','disconnect','reject'):
             run(tmp/'adapter','write',prefix+mode);count+=1
-    for mode in ('cache_skip_ready','cache_skip_tag','cache10_longlba'):
+    for mode in ('cache_skip_ready','cache_skip_tag','cache_longlba'):
         run(tmp/'adapter','write',mode);count+=1
     print(f'PASS {count} adapter scenarios with ASan/UBSan')
     fat=root/'src/lib/FatFs_SPI/ff15/source'

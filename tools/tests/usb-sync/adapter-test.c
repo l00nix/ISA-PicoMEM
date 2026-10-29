@@ -23,6 +23,8 @@ static void *owned;
 static const void *caller;
 static msc_cbw_t bus;
 static bool snapshot_max, snapshot_missing;
+static unsigned reply_calls;
+static tuh_msc_checked_fault_t model_reply;
 static tuh_msc_complete_cb_t callback;
 static uintptr_t argument;
 static unsigned char disk[1024];
@@ -32,16 +34,15 @@ uint32_t tuh_msc_get_block_count(uint8_t d,uint8_t l){assert(d==1&&!l);return 20
 uint32_t tuh_msc_get_block_size(uint8_t d,uint8_t l){assert(d==1&&!l);return blocksize;}
 static const char *cache_case(unsigned i)
 {
- if(!strncmp(mode,"cache10_",8))return i ? mode+8 : "status";
+ if(!strncmp(mode,"cache6_",7))return i ? "status" : mode+7;
  return !strncmp(mode,"cache_",6) ? mode+6 : "off";
 }
-bool tuh_msc_get_checked_fault(uint8_t d,uint32_t t,tuh_msc_checked_fault_t *out)
+bool tuh_msc_get_checked_reply(uint8_t d,uint32_t t,tuh_msc_checked_fault_t *out)
 {
  assert(d==1&&t==bus.tag&&out);
  if(snapshot_missing)return false;
- *out=(tuh_msc_checked_fault_t){.tag=t,.opcode=bus.command[0],.reason=1,
-   .stage=2,.event=2,.endpoint=0x81,.expected_endpoint=0x81,.actual=0,
-   .expected=64,.data_bytes=0,.residue=UINT32_MAX,.csw_status=255};
+ reply_calls++;
+ *out=model_reply;
  if(snapshot_max)memset(out,255,sizeof(*out));
  return true;
 }
@@ -90,7 +91,7 @@ bool tuh_msc_scsi_command(uint8_t d,const msc_cbw_t*c,void*b,tuh_msc_complete_cb
   for(unsigned j=3;j<16;j++)if(j!=(i?8:4))assert(!c->command[j]);
   assert(b==cache_data[i]&&b!=sense_data&&b!=transfer_data&&b!=caller);
   assert(c->tag>sense_request.tag&&failed&&!dirty&&!writes);
-  assert(++caches[i]==1);if(i)assert(caches[0]==1&&c->tag>cache_request[0].tag);
+  assert(++caches[i]==1);if(!i)assert(caches[1]==1&&c->tag>cache_request[1].tag);
   return strcmp(cache_case(i),"reject")!=0;
  }
  assert(c->cmd_len==10);
@@ -117,7 +118,7 @@ static void respond(bool late)
   if(!strcmp(v,"padded"))csw.data_residue=0;else csw.data_residue=64-total;
   b[ten?1:0]=total-(ten?2:1);
   if(!strcmp(v,"status"))csw.status=1;
-  if(!strcmp(v,"phase"))csw.status=2;
+  if(!strcmp(v,"phase")||!strcmp(v,"mismatch"))csw.status=2;
   if(!strcmp(v,"short"))csw.data_residue=64-(header-1);
   if(!strcmp(v,"empty")){b[ten?1:0]=header-(ten?2:1);csw.data_residue=64-header;}
   if(!strcmp(v,"length"))b[ten?1:0]=63;
@@ -136,6 +137,22 @@ static void respond(bool late)
   if(!strcmp(v,"userdata"))reply.user_arg++;
   if(!strcmp(v,"cbw"))bus.command[3]=1;
   if(!strcmp(v,"pointer"))reply.scsi_data=(void*)caller;
+  model_reply=(tuh_msc_checked_fault_t){.tag=bus.tag,.opcode=bus.command[0],
+   .stage=3,.event=0,.endpoint=0x81,.expected_endpoint=0x81,.actual=13,.expected=13,
+   .data_bytes=csw.data_residue<=64?64-csw.data_residue:0,.residue=csw.data_residue,
+   .csw_status=csw.status,.checks=63};
+  model_reply.sample_length=model_reply.data_bytes>16?16:model_reply.data_bytes;
+  memcpy(model_reply.sample,owned,model_reply.sample_length);
+  if(!strcmp(v,"phase")){
+   model_reply.reason=1;model_reply.stage=2;model_reply.event=2;model_reply.actual=0;
+   model_reply.expected=64;model_reply.data_bytes=0;model_reply.residue=UINT32_MAX;
+   model_reply.csw_status=255;model_reply.checks=0;model_reply.sample_length=0;
+  }
+  if(!strcmp(v,"mismatch")){
+   model_reply.reason=8;model_reply.data_bytes=header;model_reply.residue=0;
+   model_reply.csw_status=0;model_reply.checks=31;model_reply.sample_length=header;
+   memset(model_reply.sample,0,16);model_reply.sample[ten?1:0]=header-(ten?2:1);
+  }
   callback(!strcmp(v,"device")?2:1,!strcmp(v,"null")?NULL:&reply);
   return;
  }
@@ -219,11 +236,11 @@ int main(int argc,char**argv)
  assert(argc==3);mode=argv[2];
  if(!strcmp(mode,"report")){
   bus.tag=UINT32_MAX;test_transport_report();
-  snapshot_missing=true;cache_transport_fault(1,bus.tag);assert(!transport_lines[0][0]);
-  snapshot_missing=false;snapshot_max=true;cache_transport_fault(1,bus.tag);
-  assert(!strcmp(transport_lines[0],"USB fault op=ff tag=4294967295 why=255 stage=255 event=255"));
+  snapshot_missing=true;cache_transport_report(1,bus.tag);assert(!transport_lines[0][0]);
+  snapshot_missing=false;snapshot_max=true;cache_transport_report(1,bus.tag);
+  assert(!strcmp(transport_lines[0],"USB query op=ff tag=4294967295 why=255 stage=255 event=255"));
   assert(!strcmp(transport_lines[1],"USB xfer ep=ff/ff got=4294967295 want=4294967295 data=4294967295"));
-  assert(!strcmp(transport_lines[2],"USB CSW checks=ff status=255 residue=4294967295"));
+  assert(!strcmp(transport_lines[2],"USB CSW ck=ff s=255 r=4294967295 n=16 b=ffffffffffffffffffffffffffffffff"));
   test_transport_report();assert(!submissions);puts("PASS bounded immutable diagnostic report; full field ranges");return 0;
  }
  bool wr=!strcmp(argv[1],"write"),sync=!strcmp(argv[1],"sync");
@@ -273,7 +290,7 @@ int main(int argc,char**argv)
   assert(r==RES_ERROR&&failed&&reports==expected_reports);unsigned before=submissions;
   assert(senses==(expected_reports==2&&strncmp(mode,"sense_skip_",11)?1:0));
   if(!strncmp(mode,"cache",5)){
-   unsigned i=!strncmp(mode,"cache10_",8);const char *v=cache_case(i),*want="off";
+   unsigned i=strncmp(mode,"cache6_",7)!=0;const char *v=cache_case(i),*want="off";
    bool follow=true;
    if(!strcmp(v,"on"))want="on";
    if(!strcmp(v,"status"))want="s1";
@@ -281,22 +298,22 @@ int main(int argc,char**argv)
    if(!strcmp(v,"empty")||!strcmp(v,"page")||!strcmp(v,"spf"))want="page";
    if(!strcmp(v,"length")||!strcmp(v,"total_small")||!strcmp(v,"page_short")||!strcmp(v,"page_long"))want="length";
    if(!strcmp(v,"descriptor")||!strcmp(v,"desc_odd")||!strcmp(v,"media")||!strcmp(v,"longlba"))want="header";
-   if(!strcmp(v,"phase")){want="phase";follow=false;}
+   if(!strcmp(v,"phase")||!strcmp(v,"mismatch")){want="phase";follow=false;}
    if(!strcmp(v,"signature")||!strcmp(v,"tag")||!strcmp(v,"residue")||!strcmp(v,"userdata")||!strcmp(v,"cbw")||!strcmp(v,"pointer")||!strcmp(v,"device")||!strcmp(v,"null")){want="reply";follow=false;}
    if(!strcmp(v,"timeout")){want="time";follow=false;}
    if(!strcmp(v,"disconnect")){want="detach";follow=false;}
    if(!strcmp(v,"reject")){want="submit";follow=false;}
    if(!strncmp(v,"skip_",5)){want="skip";follow=false;}
    if(!strcmp(want,"on")||!strcmp(want,"off"))follow=false;
-   char expected[64];snprintf(expected,sizeof(expected),"c6=%s c10=%s",i?"s1":want,i?want:follow?want:"-");
+   char expected[64];snprintf(expected,sizeof(expected),"c6=%s c10=%s",i?(follow?(!strcmp(v,"longlba")?"off":want):"-"):want,i?want:"s1");
    assert(strstr(status_text,expected));
-   assert(caches[0]==(strncmp(v,"skip_",5)!=0)&&caches[1]==(i||follow));
+   assert(caches[1]==(strncmp(v,"skip_",5)!=0)&&caches[0]==(!i||follow));
    assert(flushes==1&&writes==0&&senses==1&&!dirty);
   } else {
    bool eligible=((wr||sync)&&(!strcmp(mode,"scsi")||!strcmp(mode,"syncfail")))||
      !strcmp(mode,"sense_fixed")||!strcmp(mode,"sense_validbit")||!strcmp(mode,"sense_descriptor");
-   assert(caches[0]==eligible&&!caches[1]);
-   if(eligible)assert(strstr(status_text,"c6=off c10=-"));
+   assert(caches[1]==eligible&&!caches[0]);
+   if(eligible)assert(strstr(status_text,"c6=- c10=off"));
   }
   if(!strncmp(mode,"sense_",6)){
    assert(wr&&writes==0&&flushes==1&&!dirty);
@@ -328,11 +345,15 @@ int main(int argc,char**argv)
   if(!strcmp(mode,"syncfail"))assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=0"));
   if(!strcmp(mode,"write_timeout"))assert(strstr(status_text,"op=2a f=6 s=255 r=0 d=1"));
   if(!strcmp(mode,"dirty_syncfail"))assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=1"));
-  if (!strcmp(mode,"cache_phase") || !strcmp(mode,"cache10_phase")) {
+  if (!strcmp(mode,"cache_phase") || !strcmp(mode,"cache6_phase")) {
    assert(strstr(transport_lines[0],"why=1 stage=2 event=2"));
    assert(!strcmp(transport_lines[1],"USB xfer ep=81/81 got=0 want=64 data=0"));
-   assert(!strcmp(transport_lines[2],"USB CSW checks=00 status=255 residue=4294967295"));
-  } else assert(!transport_lines[0][0]);
+   assert(!strcmp(transport_lines[2],"USB CSW ck=00 s=255 r=4294967295 n=0 b="));
+  } else if(!strcmp(mode,"cache_mismatch")||!strcmp(mode,"cache6_mismatch")) {
+   assert(strstr(transport_lines[0],"why=8 stage=3 event=0"));
+   assert(strstr(transport_lines[2],"ck=1f s=0 r=0"));
+   assert(strstr(transport_lines[2],!strcmp(mode,"cache_mismatch")?"n=8 b=0006000000000000":"n=4 b=03000000"));
+  } else assert(!!transport_lines[0][0]==!!reply_calls);
   test_transport_report();
   char first_transport[sizeof(transport_lines)];memcpy(first_transport,transport_lines,sizeof(first_transport));
   char first_fault[80];strcpy(first_fault,status_text);

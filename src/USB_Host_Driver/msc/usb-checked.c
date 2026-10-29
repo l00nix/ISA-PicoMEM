@@ -79,16 +79,25 @@ static const char *cache_result[2] = {"-", "-"};
 static unsigned cache_index, cache_length;
 static bool cache_waiting, cache_completed;
 
-/* Permanent cached text: independent of TinyUSB device close/late callbacks.
+/* Latest completed cache-query text, independent of device close/late callbacks.
  * Three <=79-byte lines fit CMD_USB_Status's existing eight-line/1024B client.
  */
 static char transport_lines[3][80];
-static void cache_transport_fault(uint8_t dev, uint32_t request_tag)
+static void cache_transport_report(uint8_t dev, uint32_t request_tag)
 {
     tuh_msc_checked_fault_t f;
-    if (transport_lines[0][0] || !tuh_msc_get_checked_fault(dev, request_tag, &f)) return;
+    char hex[33];
+    if (!tuh_msc_get_checked_reply(dev, request_tag, &f)) return;
+    unsigned n = f.sample_length;
+    if (n > sizeof(f.sample)) n = sizeof(f.sample);
+    for (unsigned i = 0; i < n; ++i) {
+        static const char digits[] = "0123456789abcdef";
+        hex[2*i] = digits[f.sample[i] >> 4];
+        hex[2*i+1] = digits[f.sample[i] & 15];
+    }
+    hex[2*n] = 0;
     snprintf(transport_lines[0], sizeof(transport_lines[0]),
-        "USB fault op=%02x tag=%lu why=%u stage=%u event=%u",
+        "USB query op=%02x tag=%lu why=%u stage=%u event=%u",
         (unsigned)f.opcode, (unsigned long)f.tag, (unsigned)f.reason,
         (unsigned)f.stage, (unsigned)f.event);
     snprintf(transport_lines[1], sizeof(transport_lines[1]),
@@ -96,8 +105,8 @@ static void cache_transport_fault(uint8_t dev, uint32_t request_tag)
         (unsigned)f.endpoint, (unsigned)f.expected_endpoint,
         (unsigned long)f.actual, (unsigned long)f.expected, (unsigned long)f.data_bytes);
     snprintf(transport_lines[2], sizeof(transport_lines[2]),
-        "USB CSW checks=%02x status=%u residue=%lu",
-        (unsigned)f.checks, (unsigned)f.csw_status, (unsigned long)f.residue);
+        "USB CSW ck=%02x s=%u r=%lu n=%u b=%s",
+        (unsigned)f.checks, (unsigned)f.csw_status, (unsigned long)f.residue, n, hex);
 }
 
 void pm_usb_append_transport_status(char *buffer, size_t capacity)
@@ -135,6 +144,7 @@ static bool cache_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
         reply->scsi_data == cache_data[cache_index] &&
         reply->csw->signature == MSC_CSW_SIGNATURE &&
         reply->csw->tag == q->tag && reply->csw->data_residue <= CACHE_BYTES) {
+        cache_transport_report(dev, q->tag);
         /* For these queries the pinned transport validates actual DATA bytes
          * against residue for BOTH success and command-failed CSWs. */
         if (reply->csw->status <= 1) {
@@ -143,7 +153,6 @@ static bool cache_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
             cache_result[cache_index] = reply->csw->status ? "s1" : "ok";
         } else {
             cache_result[cache_index] = "phase";
-            cache_transport_fault(dev, q->tag);
         }
     }
     cache_waiting = false;
@@ -287,7 +296,8 @@ static void collect_sense(void)
     /* Query only current unsupported-opcode sense. Deferred errors or any
      * other reason do not authorize follow-up. Original failure stays latched. */
     if ((format == 0x70 || format == 0x72) && key == 5 && asc == 0x20 && !ascq) {
-        if (collect_cache(0)) (void)collect_cache(1);
+        /* Try MODE SENSE(10) first; never follow an ambiguous completion. */
+        if (collect_cache(1)) (void)collect_cache(0);
         usb_set_status(sense_device,
             "?USB fault op=35 f=2 s=1 r=0 d=0 rs=%02x:%x/%02x/%02x n=%u c6=%s c10=%s",
             (unsigned)format, (unsigned)key, (unsigned)asc, (unsigned)ascq,
