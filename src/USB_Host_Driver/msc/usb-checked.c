@@ -9,6 +9,7 @@
 #include "ff.h"
 #include "diskio.h"
 #include "usb-checked.h"
+#include "../usb.h"
 #include <string.h>
 #include "pico/time.h"
 
@@ -20,6 +21,20 @@ static uint32_t tag;
 static uint8_t device;
 static bool active, failed, dirty, sync_supported;
 static bool waiting;
+static uint8_t fault_opcode;
+/* First fault only, visible through the existing cached CMD_USB_Status query.
+ * Formatting does not submit USB work or clear quarantine. */
+enum fault_kind { FAULT_REPLY=1, FAULT_STATUS, FAULT_RESIDUE, FAULT_STATE,
+                  FAULT_SUBMIT, FAULT_TIMEOUT, FAULT_DETACH, FAULT_IO };
+static void fault(unsigned kind, unsigned status, uint32_t residue)
+{
+    if (failed) return;
+    failed = true;
+    if (device && device <= CFG_TUH_DEVICE_MAX)
+        usb_set_status(device, "?USB fault op=%02x f=%u s=%u r=%lu d=%u",
+                       (unsigned)fault_opcode, kind, status,
+                       (unsigned long)residue, (unsigned)dirty);
+}
 
 static bool present(void)
 {
@@ -40,7 +55,7 @@ bool pm_usb_attach(uint8_t dev)
 void pm_usb_detach(uint8_t dev)
 {
     if (dev != device) return;
-    if (active || dirty) failed = true;
+    if (active || dirty) fault(FAULT_DETACH, 255, 0);
     device = 0;
     sync_supported = false;
     /* Do not release or repurpose transfer_data, request, or tag while failed. */
@@ -53,8 +68,12 @@ static bool complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
         !reply->cbw || !reply->csw || reply->user_arg != tag ||
         memcmp(reply->cbw, &request, sizeof(request)) ||
         reply->scsi_data != (request.total_bytes ? transfer_data : NULL) ||
-        reply->csw->signature != MSC_CSW_SIGNATURE || reply->csw->tag != tag ||
-        reply->csw->status != 0 || reply->csw->data_residue != 0) failed = true;
+        reply->csw->signature != MSC_CSW_SIGNATURE || reply->csw->tag != tag)
+        fault(FAULT_REPLY, 255, 0);
+    else if (reply->csw->status != 0)
+        fault(FAULT_STATUS, reply->csw->status, reply->csw->data_residue);
+    else if (reply->csw->data_residue != 0)
+        fault(FAULT_RESIDUE, 0, reply->csw->data_residue);
     waiting = false;
     return true;
 }
@@ -63,9 +82,10 @@ static DRESULT command(uint8_t opcode, uint32_t sector)
 {
     uint32_t deadline;
     if (failed) return RES_ERROR;
+    fault_opcode = opcode;
     if (!present()) return RES_NOTRDY;
     if (!active || waiting || !tuh_msc_ready(device) || tag == UINT32_MAX) {
-        failed = true;
+        fault(FAULT_STATE, 255, 0);
         return RES_ERROR;
     }
     memset(&request, 0, sizeof(request));
@@ -87,13 +107,14 @@ static DRESULT command(uint8_t opcode, uint32_t sector)
     deadline = time_us_32() + COMMAND_TIMEOUT_US;
     if (!tuh_msc_scsi_command(device, &request,
             request.total_bytes ? transfer_data : NULL, complete, tag)) {
-        failed = true; /* Even rejected submissions cannot recycle state. */
+        fault(FAULT_SUBMIT, 255, 0); /* Never recycle a rejected request. */
         return RES_ERROR;
     }
     while (waiting && !failed) {
         tuh_task();
         if (!waiting || failed) break; /* A completed command wins at deadline. */
-        if (!present() || (int32_t)(time_us_32() - deadline) >= 0) failed = true;
+        if (!present()) fault(FAULT_DETACH, 255, 0);
+        else if ((int32_t)(time_us_32() - deadline) >= 0) fault(FAULT_TIMEOUT, 255, 0);
     }
     return failed ? RES_ERROR : RES_OK;
 }
@@ -108,7 +129,7 @@ static DRESULT begin(void)
 static DRESULT end(DRESULT result)
 {
     if (result == RES_OK) active = false;
-    else failed = true; /* Includes detach mid-operation; lifetime is permanent. */
+    else fault(FAULT_IO, 255, 0); /* Preserve any earlier, more specific fault. */
     return result;
 }
 static DRESULT validate(const void *buf, LBA_t sector, UINT count)

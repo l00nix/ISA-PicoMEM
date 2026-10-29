@@ -6,9 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "../../../src/USB_Host_Driver/msc/usb-checked.c"
 #include "../../../src/USB_Host_Driver/msc/fatfs_usb.c"
-void usb_set_status(uint8_t d,const char *fmt,...){(void)d;(void)fmt;}
+static char status_text[80];
+void usb_set_status(uint8_t d,const char *fmt,...){
+ assert(d==1);va_list a;va_start(a,fmt);int n=vsnprintf(status_text,sizeof(status_text),fmt,a);va_end(a);assert(n>0&&n+3<80);
+}
 static FILE *image;
 static uint32_t sectors,ticks;
 static msc_cbw_t bus;
@@ -66,7 +70,7 @@ int main(int argc,char**argv)
  assert(msc_dev_addr==0xff&&!submissions);
  tuh_msc_mount_cb(1);
  if(!strcmp(mode,"mountfail")){
-  assert(msc_dev_addr==0xff&&failed);unsigned before=submissions;
+  assert(msc_dev_addr==0xff&&failed&&strstr(status_text,"op=28 f=2 s=1"));unsigned before=submissions;
   tuh_msc_mount_cb(1);assert(submissions==before);
   assert(!fclose(image));puts("PASS actual mount callback: failure quarantine");return 0;
  }
@@ -80,6 +84,8 @@ int main(int argc,char**argv)
  if(!strcmp(mode,"unsupported")){
   if(r==FR_OK){r=f_write(&f,payload,sizeof(payload),&n);if(r==FR_OK)r=f_close(&f);}
   assert(r==FR_DISK_ERR&&failed&&!writes&&flushes==1);
+  assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=0"));
+  tuh_msc_umount_cb(1);assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=0"));
  }else{
   assert(r==FR_OK&&f_write(&f,payload,sizeof(payload),&n)==FR_OK&&n==sizeof(payload));
   armed=true;r=f_close(&f);

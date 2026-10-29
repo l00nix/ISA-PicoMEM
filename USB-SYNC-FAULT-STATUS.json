@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-29",
+  "status": "diagnostic-only follow-up host-tested; NOT flashed",
+  "branch": "codex/usb-sync-lifetime",
+  "firmware_base_commit": "d5d29e00b1fa7df43695c72a5c568b59eab40bb8",
+  "candidate_artifacts_sha256": {
+    "picomem.uf2": "015f79bb11dc0ea7ca20131a0e8236d41ae78807e2bb0c8e780dfb0e8c2f0f9b",
+    "picomem.bin": "70979e213538443e7cc69057e6f3fc690ed2644212f0b900df987de58578a719",
+    "picomem.elf": "2f1a32c4a2564e8927a98fe2b4d0778107c44faeb452c8199a919cb5c9183213",
+    "picomem.elf.map": "acc7029a212e29e333669eaab64c5cec0e4abe9cbfd2edba3f363a8f8278ce8f"
+  },
+  "source_sha256": {
+    "src/USB_Host_Driver/msc/usb-checked.c": "67da78f2d25cea4bee923cd174b861cef9a0793abb061de1865e6aa7e92ae80e",
+    "src/USB_Host_Driver/msc/fatfs_usb.c": "747582972e1cd9f28a0cb9f35e929a42fb87f8dffe1e94fbc9225f4dde112a24",
+    "src/lib/tinyusb/src/class/msc/msc_host.c": "7d597911c42fc0b6616bde1f79a2242d4737d8605d7752eda4dfd66b39f446ca",
+    "tools/tests/usb-sync/adapter-test.c": "c46dfc37b24c5a75155e6a4113cd0800234a7b5b0e3bda8abaf154dd900d41ca",
+    "tools/tests/usb-sync/fatfs-test.c": "aa593439f956b089d466de910a0aaacf0fe1a37607293b4ad9970a6167d0ddf1",
+    "tools/tests/usb-sync/test.py": "5039925dbedb48162338a77839893d9c6ea6e18228c09f7b64e3de0b7fca3d54"
+  },
+  "installed_first_candidate_sha256": "2a6ca54c8e740522ce29f2af129f70517ee49295639df9f9880029c2b5ebbe8b",
+  "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+  "new_kernel_required": false,
+  "changes": "Preserve first USB opcode/fault/status/residue/dirty flag in cached pmstat status; no additional USB commands, retries, fallback writes or weakened quarantine",
+  "tests": {
+    "actual_tinyusb_cases": 578,
+    "adapter_scenarios": 59,
+    "fatfs_mount_fat32_scenarios": 5,
+    "legacy_usb_cases": 14,
+    "asan_ubsan": "passed",
+    "arm_build": "passed",
+    "core0_stack_reserved": 4096,
+    "core1_stack_reserved": 2048,
+    "option_off_uf2_unchanged_from_previous_off_build": true,
+    "hardware": "pending"
+  },
+  "memory": {
+    "flash_bytes": 4805672,
+    "ram_bytes": 380704,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "upstream_pr_changed": false
+}

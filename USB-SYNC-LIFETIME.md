@@ -1,7 +1,7 @@
 # USB cache synchronization and transfer lifetime candidate
 
 I am testing a firmware-only follow-up to [file-service error reporting](FILE-SERVICE-ERRORS.md).
-**Host tests and ARM builds pass; PPC512, Kingston and DOS validation is pending.**
+**PPC512 read checks passed, but the first write failed. A diagnostic follow-up is prepared; DOS validation is pending.**
 This is a default-off experiment, not a USB read/write release candidate. The
 existing diagnostics ELKS kernel and utilities are sufficient; SD stays read-only.
 
@@ -66,7 +66,7 @@ hash. The patch and dependency commits are recorded in
 [USB-SYNC-LIFETIME.json](USB-SYNC-LIFETIME.json). Run the dependency preparation
 script again to verify that the pinned patches are already applied.
 
-The candidate uses 4,804,456 FLASH bytes and 380,700 RAM bytes: increases of 416
+The first candidate used 4,804,456 FLASH bytes and 380,700 RAM bytes: increases of 416
 and 512 bytes respectively. SCRATCH_X stays at 3748 bytes and core 0 retains its
 4096-byte SCRATCH_Y stack; core 1 retains 2048 bytes. These are link-map checks,
 not runtime stack measurements. One-sector transfers may reduce throughput.
@@ -104,18 +104,62 @@ pass. Existing linker warnings for unused newlib link/unlink stubs remain.
 These tests model transport completion; they do not emulate a USB controller,
 prove cache persistence, or establish hardware timing/stack headroom.
 
+## First PPC512 attempt — October 29, 2026
+
+The full-flash backup and candidate readback passed. ELKS booted normally. The
+initial USB-status query showed zero devices; after reconnecting the Kingston,
+it reported `USB Disk mounted (checked I/O)`. The cause of the initial detection
+miss is not established. All eight retained files matched their expected contents
+through a read-only mount. The initial observed stack use was 1612/4096 firmware
+bytes and 418/700 ELKS bytes, with flags and invalid counts zero.
+
+The first `mkdir` in fresh `PMSYNC29` returned an I/O error. No workload batches
+ran. The subsequent `pmperf` ioctl also failed with I/O error because the
+file-service session was unusable. USB unmounted successfully, SD stayed unmounted,
+and I made no further USB write attempts. The failed command and any prior sector
+mutation are unknown: this build does not expose the adapter's first fault.
+The first-write flush probe is a possible cause, not a confirmed diagnosis.
+
+[Hardware evidence and native screen](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#first-ppc512-attempt).
+
+## Diagnostic follow-up
+
+A small follow-up preserves the first adapter fault in `pmstat --usb`, so it can
+be read even after the ELKS file-service session refuses `pmperf`. It retains all
+flush checks, error responses and quarantine rules. There are no retries, sense
+requests, fallback writes or new USB commands. Mount/removal status messages cannot
+overwrite a fault. A clean restart is still required to resume USB I/O.
+
+Example from a host test, **not yet a PPC observation**:
+`?USB fault op=35 f=2 s=1 r=0 d=0`.
+
+- `op`: attempted SCSI opcode in hex (`28` read, `2a` write, `35` flush).
+- `f`: fault category: 1 invalid reply, 2 failed status, 3 residue, 4 adapter state,
+  5 submission failure, 6 timeout, 7 disconnect/dirty detach, 8 other I/O failure.
+- `s`: SCSI status, or 255 when unavailable/untrusted. Status 1 means command
+  failed; it does not alone establish unsupported-command sense data. Status 2
+  may be a real phase error or the checked TinyUSB layer's synthetic failure.
+- `r`: residue from a structurally validated reply; zero when unavailable.
+- `d`: adapter dirty flag; it is not a count of sectors actually changed.
+
+The follow-up passes 578 TinyUSB cases, 59 adapter scenarios, five real FAT32/mount
+scenarios and the 14 legacy USB scenarios. Tests check bounded status formatting,
+correct fault categories, and preservation through late completions, unmount and
+reconnect attempts. ARM build and stack layout pass. It uses 4,805,672 FLASH bytes
+and 380,704 RAM bytes, four more RAM bytes than the first candidate. Runtime fault
+reporting stack usage still needs measurement. See [follow-up hashes](USB-SYNC-FAULT-STATUS.json).
+
 ## Hardware validation still required
 
-The PPC is currently in DOS with patched CMTEST/RMTDOS. Return to ELKS first,
-verify the installed baseline and existing fixtures, then cleanly unmount USB
-and shut down. After physical readiness is confirmed, save and readback-verify a
+The PPC is running ELKS with USB unmounted after the failed first write. For the
+diagnostic follow-up, confirm physical readiness, then cleanly shut down. After physical readiness is confirmed, save and readback-verify a
 fresh full 16 MiB PicoMEM flash backup before flashing this candidate. Verify the
 candidate's readback too. No kernel change is planned.
 
 Start with detection and read-only checks, then one fresh bounded write to test
 Kingston flush support. On any I/O/flush failure, stop; do not retry or unplug a
 mounted device. Preserve the logs and use the verified recovery image if needed.
-On success, run the 18 workload batches in a fresh `PMSYNC29` directory, measure
+On success, run the 18 workload batches in a fresh `PMSYD29` directory (do not reuse the uncertain `PMSYNC29` attempt), measure
 timing and observed stack use, compare all retained file bytes before/after clean
 remount, perform the independent Mac filename/content and read-only FAT checks,
 and test the ELKS return trip plus DOS 8.3 compatibility. SD stays unmounted.

@@ -5,7 +5,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "../../../src/USB_Host_Driver/msc/usb-checked.c"
+static char status_text[80];
+static unsigned reports;
+void usb_set_status(uint8_t d,const char *fmt,...)
+{
+ assert(d==1);va_list a;va_start(a,fmt);
+ int n=vsnprintf(status_text,sizeof(status_text),fmt,a);va_end(a);
+ assert(n>0&&n+3<(int)sizeof(status_text));reports++;
+}
 static const char *mode;
 static bool mounted=true, ready=true;
 static uint32_t blocksize=512,ticks;
@@ -39,6 +48,7 @@ static void respond(bool late)
  msc_csw_t csw={.signature=MSC_CSW_SIGNATURE,.tag=bus.tag};
  tuh_msc_complete_data_t reply={.cbw=&bus,.csw=&csw,.scsi_data=owned,.user_arg=argument};
  if(!late){
+  if(!strcmp(mode,"phase"))csw.status=2;
   if((!strcmp(mode,"dirty_syncfail") && writes && bus.command[0]==0x35)||!strcmp(mode,"scsi")||(!strcmp(mode,"syncfail")&&bus.command[0]==0x35))csw.status=1;
   if(!strcmp(mode,"signature"))csw.signature^=1;
   if(!strcmp(mode,"tag"))csw.tag++;
@@ -103,7 +113,20 @@ int main(int argc,char**argv)
   }
   free(buf);
  }else{
-  assert(r==RES_ERROR&&failed);unsigned before=submissions;
+  assert(r==RES_ERROR&&failed&&reports==1);unsigned before=submissions;
+  unsigned expected_reason=FAULT_REPLY;
+  if(!strcmp(mode,"scsi")||!strcmp(mode,"phase")||!strcmp(mode,"syncfail")||!strcmp(mode,"dirty_syncfail"))expected_reason=FAULT_STATUS;
+  if(!strcmp(mode,"residue"))expected_reason=FAULT_RESIDUE;
+  if(!strcmp(mode,"timeout")||!strcmp(mode,"write_timeout"))expected_reason=FAULT_TIMEOUT;
+  if(!strcmp(mode,"disconnect"))expected_reason=FAULT_DETACH;
+  if(!strcmp(mode,"reject"))expected_reason=FAULT_SUBMIT;
+  if(!strcmp(mode,"tagwrap")||!strcmp(mode,"notready"))expected_reason=FAULT_STATE;
+  char reason[16];snprintf(reason,sizeof(reason)," f=%u ",expected_reason);assert(strstr(status_text,reason));
+  if(!strcmp(mode,"phase"))assert(strstr(status_text," s=2 "));
+  if(!strcmp(mode,"syncfail"))assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=0"));
+  if(!strcmp(mode,"write_timeout"))assert(strstr(status_text,"op=2a f=6 s=255 r=0 d=1"));
+  if(!strcmp(mode,"dirty_syncfail"))assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=1"));
+  char first_fault[80];strcpy(first_fault,status_text);
   if(wr&&!strcmp(mode,"write_timeout"))assert(writes==1&&flushes==1&&owned);
   if(wr&&!strcmp(mode,"syncfail"))assert(writes==0&&flushes==1);
   if(!wr&&!sync)for(unsigned i=0;i<1024;i++)assert(buf[i]==0x5a);
@@ -114,7 +137,7 @@ int main(int argc,char**argv)
   if(callback)respond(true);
   BYTE again[512];assert(usb_disk_read(again,12,1)==RES_ERROR);
   assert(usb_disk_write(again,12,1)==RES_ERROR&&usb_disk_ioctl(CTRL_SYNC,NULL)==RES_ERROR);
-  assert(submissions==before&&failed);
+  assert(submissions==before&&failed&&reports==1&&!strcmp(first_fault,status_text));
  }
  printf("PASS owned USB buffer/cache sync: %s %s\n",argv[1],mode);return 0;
 }

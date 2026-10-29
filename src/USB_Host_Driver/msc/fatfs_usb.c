@@ -105,7 +105,8 @@ void tuh_msc_mount_cb(uint8_t dev_addr)
     if (result != FR_OK) {
         pm_usb_detach(dev_addr);
         msc_dev_addr = 0xFF;
-        usb_set_status(dev_addr, "?MSC filesystem mount failed (%d)", result);
+        if (pm_usb_accepting())
+            usb_set_status(dev_addr, "?MSC filesystem mount failed (%d)", result);
         return;
     }
     char cwd[2];
@@ -134,6 +135,9 @@ void tuh_msc_umount_cb(uint8_t dev_addr)
 #endif
     char drive_path[3] = "1:";
     f_unmount(drive_path);
+#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
+    if (pm_usb_accepting()) /* Do not erase the first fault on removal. */
+#endif
     usb_set_status(dev_addr, "USB Disk Removed");
     msc_dev_addr=0xFF;
 }

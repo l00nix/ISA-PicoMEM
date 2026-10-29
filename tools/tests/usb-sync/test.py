@@ -15,7 +15,7 @@ with tempfile.TemporaryDirectory(prefix='pm-usb-sync-') as d:
     run(tmp/'msc')
     count=0
     for op in ('read','write','sync'):
-        for mode in ('guards','normal','reentrant','scsi','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','disconnect','reject','tagwrap','notready'):
+        for mode in ('guards','normal','reentrant','scsi','phase','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','disconnect','reject','tagwrap','notready'):
             run(tmp/'adapter',op,mode);count+=1
     for op,mode in [('write','dirty_detach'),('write','syncfail'),('sync','syncfail'),('write','write_timeout'),('write','dirty_syncfail')]:
         run(tmp/'adapter',op,mode);count+=1
