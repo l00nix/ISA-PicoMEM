@@ -89,8 +89,7 @@ python3 tools/test-lfn-rom.py
 ```
 
 The paired [ELKS candidate](https://github.com/l00nix/picomem-elks/tree/codex/long-name-rename)
-adds `pmrename` and a native fixture probe. Independent Mac FAT checks, DOS regression testing and runtime resource
-measurements remain
+adds `pmrename` and a native fixture probe. DOS regression testing and runtime resource measurements remain
 before any release-candidate claim.
 
 ## PPC512 validation
@@ -109,3 +108,7 @@ unmount/remount and a normal reboot; the retained creation fixtures remained unc
 Tested UF2 SHA-256:
 `79055e63295aad3901d23ff17a93882ec3cf3cc8c5dd4702c36a5205626e31c8`.
 This remains experimental; no new upstream PR or release-candidate claim.
+
+Direct Mac checks also passed: exact long filenames, complete payload matches,
+unchanged creation fixtures, and `fsck_msdos -n` exit code 0 after clean unmount.
+No filesystem repair was requested; the stick was safely ejected afterward.
