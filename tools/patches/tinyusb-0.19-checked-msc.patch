@@ -1,5 +1,5 @@
 diff --git a/src/class/msc/msc_host.c b/src/class/msc/msc_host.c
-index eb69ae400..ae1f7ca93 100644
+index eb69ae400..4bb48733d 100644
 --- a/src/class/msc/msc_host.c
 +++ b/src/class/msc/msc_host.c
 @@ -61,6 +61,9 @@ typedef struct {
@@ -7,7 +7,7 @@ index eb69ae400..ae1f7ca93 100644
    // SCSI command data
    uint8_t stage;
 +#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
-+  uint32_t pm_data_bytes; /* Actual DATA length for the bounded sense query. */
++  uint32_t pm_data_bytes; /* Actual DATA length for bounded diagnostic queries. */
 +#endif
    void* buffer;
    tuh_msc_complete_cb_t complete_cb;
@@ -22,7 +22,7 @@ index eb69ae400..ae1f7ca93 100644
  
    if (!usbh_edpt_xfer(daddr, p_msc->ep_out, (uint8_t*) &epbuf->cbw, sizeof(msc_cbw_t))) {
      usbh_edpt_release(daddr, p_msc->ep_out);
-@@ -321,12 +327,58 @@ void msch_close(uint8_t dev_addr) {
+@@ -321,12 +327,65 @@ void msch_close(uint8_t dev_addr) {
    tu_memclr(p_msc, sizeof(msch_interface_t));
  }
  
@@ -60,18 +60,25 @@ index eb69ae400..ae1f7ca93 100644
 +  bool const pm_sense = cbw->command[0] == 0x03 && cbw->cmd_len == 6 &&
 +                        cbw->dir == TUSB_DIR_IN_MASK && cbw->total_bytes == 18 &&
 +                        cbw->command[4] == 18;
++  bool const pm_cache = cbw->dir == TUSB_DIR_IN_MASK && cbw->total_bytes == 64 &&
++                        cbw->command[1] == 8 && cbw->command[2] == 8 &&
++                        cbw->command[3] == 0 &&
++                        ((cbw->command[0] == 0x1a && cbw->cmd_len == 6 &&
++                          cbw->command[4] == 64) ||
++                         (cbw->command[0] == 0x5a && cbw->cmd_len == 10 &&
++                          cbw->command[7] == 0 && cbw->command[8] == 64));
 +  if (p_msc->stage == MSC_STAGE_IDLE) return false; /* Late duplicate event. */
 +  if (event != XFER_RESULT_SUCCESS ||
 +      (p_msc->stage == MSC_STAGE_CMD &&
 +       (ep_addr != p_msc->ep_out || xferred_bytes != sizeof(msc_cbw_t))) ||
 +      (p_msc->stage == MSC_STAGE_DATA &&
 +       (ep_addr != ((cbw->dir & TUSB_DIR_IN_MASK) ? p_msc->ep_in : p_msc->ep_out) ||
-+        (pm_sense ? xferred_bytes > cbw->total_bytes : xferred_bytes != cbw->total_bytes))) ||
++        ((pm_sense || pm_cache) ? xferred_bytes > cbw->total_bytes : xferred_bytes != cbw->total_bytes))) ||
 +      (p_msc->stage == MSC_STAGE_STATUS &&
 +       (ep_addr != p_msc->ep_in || xferred_bytes != sizeof(msc_csw_t) ||
 +        csw->signature != MSC_CSW_SIGNATURE || csw->tag != cbw->tag ||
 +        csw->data_residue > cbw->total_bytes || csw->status > 2 ||
-+        (pm_sense && csw->status == 0 &&
++        (((pm_sense && csw->status == 0) || (pm_cache && csw->status <= 1)) &&
 +         p_msc->pm_data_bytes != cbw->total_bytes - csw->data_residue)))) {
 +    return pm_msch_failed(dev_addr);
 +  }

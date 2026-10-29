@@ -83,5 +83,38 @@ int main(void)
   assert(!msch_xfer_cb(1,variant==2?2:0x81,XFER_RESULT_SUCCESS,8));
   assert(completed==1&&status==2);tests++;
  }
+ /* MODE SENSE(6/10): a clean status 1 may permit the alternate query.
+  * Therefore validate DATA/residue agreement for BOTH statuses 0 and 1. */
+ for(unsigned ten=0;ten<2;ten++)for(unsigned st=0;st<2;st++)
+ for(unsigned received=0;received<=65;received++)for(unsigned residue=0;residue<=65;residue++){
+  setup(MSC_STAGE_CMD);msc_cbw_t*c=&get_epbuf(1)->cbw;
+  c->total_bytes=64;c->cmd_len=ten?10:6;c->command[0]=ten?0x5a:0x1a;
+  c->command[1]=8;c->command[2]=8;c->command[ten?8:4]=64;
+  assert(msch_xfer_cb(1,2,XFER_RESULT_SUCCESS,31));
+  bool accepted=msch_xfer_cb(1,0x81,XFER_RESULT_SUCCESS,received);
+  if(received>64){assert(!accepted&&completed==1&&status==2);}
+  else{
+   assert(accepted&&!completed&&get_itf(1)->pm_data_bytes==received);
+   get_epbuf(1)->csw.data_residue=residue;get_epbuf(1)->csw.status=st;
+   bool ok=msch_xfer_cb(1,0x81,XFER_RESULT_SUCCESS,13);
+   assert(ok==(residue<=64&&received==64-residue));
+   assert(completed==1&&status==(ok?st:2));
+  }tests++;
+ }
+ for(unsigned ten=0;ten<2;ten++)for(unsigned variant=0;variant<8;variant++){
+  setup(MSC_STAGE_DATA);msc_cbw_t*c=&get_epbuf(1)->cbw;
+  c->total_bytes=64;c->cmd_len=ten?10:6;c->command[0]=ten?0x5a:0x1a;
+  c->command[1]=8;c->command[2]=8;c->command[ten?8:4]=64;
+  if(variant==0)c->command[0]=0x28;
+  if(variant==1)c->cmd_len=12;
+  if(variant==2)c->dir=0;
+  if(variant==3)c->total_bytes=65;
+  if(variant==4)c->command[ten?8:4]=65;
+  if(variant==5)c->command[1]=0;
+  if(variant==6)c->command[2]=0x48; /* Changeable, not current. */
+  if(variant==7)c->command[3]=1;
+  assert(!msch_xfer_cb(1,variant==2?2:0x81,XFER_RESULT_SUCCESS,8));
+  assert(completed==1&&status==2);tests++;
+ }
  printf("PASS actual TinyUSB MSC: %u completion/length/status cases\n",tests);return 0;
 }

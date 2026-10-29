@@ -34,7 +34,10 @@ void tuh_task_ext(uint32_t ms,bool isr)
  (void)ms;(void)isr;
  msc_csw_t csw={.signature=MSC_CSW_SIGNATURE,.tag=bus.tag};
  tuh_msc_complete_data_t reply={.cbw=&bus,.csw=&csw,.scsi_data=owned,.user_arg=arg};
- if(bus.command[0]==0x03){
+ if(bus.command[0]==0x1a){
+  assert(failed&&!dirty&&!writes&&bus.total_bytes==64);
+  memset(owned,0,64);BYTE *b=owned;b[0]=23;b[4]=8;b[5]=18;csw.data_residue=40;
+ }else if(bus.command[0]==0x03){
   assert(failed&&!dirty&&!writes&&bus.total_bytes==18);
   memset(owned,0,18);BYTE *b=owned;b[0]=0x70;b[2]=5;b[7]=10;b[12]=0x20;
  }else if(bus.command[0]==0x35){
@@ -87,7 +90,7 @@ int main(int argc,char**argv)
  if(!strcmp(mode,"unsupported")){
   if(r==FR_OK){r=f_write(&f,payload,sizeof(payload),&n);if(r==FR_OK)r=f_close(&f);}
   assert(r==FR_DISK_ERR&&failed&&!writes&&flushes==1);
-  assert(strstr(status_text,"rs=70:5/20/00 n=18"));
+  assert(strstr(status_text,"rs=70:5/20/00 n=18 c6=off c10=-"));
   assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=0"));
   tuh_msc_umount_cb(1);assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=0"));
  }else{

@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-29",
+  "status": "Built and host tested; hardware pending; no write policy change",
+  "branch": "codex/usb-sync-lifetime",
+  "firmware_base_commit": "a3ceefd22449ed6c84e97d778466528ddbc3e06f",
+  "candidate_artifacts_sha256": {
+    "picomem.bin": "82301170a7a7ee5638a1c68e3686ff3739f9e27c466f927cc6784140f9adff16",
+    "picomem.elf": "7e280c3ba30327f9f0e77dea4b32442f19dfdb3ff3620c9a94b4df460a33179e",
+    "picomem.elf.map": "62d29e5f5c307e8068788176b803511676e6ea8451960a2d838e47592362fea3",
+    "picomem.uf2": "55449b46e26e117a98c0ccd7edc41ff131466cb8617c0e8811dd3fbb3789a560"
+  },
+  "source_sha256": {
+    "src/USB_Host_Driver/msc/usb-checked.c": "b188cdebbcf7da7a76d10dbab5d53c1d71d9325c87330e1975f9552f4cf33383",
+    "src/USB_Host_Driver/msc/fatfs_usb.c": "747582972e1cd9f28a0cb9f35e929a42fb87f8dffe1e94fbc9225f4dde112a24",
+    "src/lib/tinyusb/src/class/msc/msc_host.c": "53dec985a91d3738b05f6563ab8c8ac4df8047a73b685fe46011382e38d9dbfa",
+    "src/CMakeLists.txt": "9c27207057516687d577c2d4725561612110cca425e414edc6993dbd7f4d2ef7",
+    "tools/patches/tinyusb-0.19-checked-msc.patch": "bf1c44c7cbeba8d01bb4430499766fac6df8adc1378b4b38865a231d3f36787f",
+    "tools/prepare-lfn-deps.py": "a385a31ef9edf3374021d7e642d09ed9c3dda1ae0045a6f2be04993a5039eb8d",
+    "tools/tests/usb-sync/msc-test.c": "5f7ded54243585db3c402d96b01718af3b207bc6c7d5f44ffb7954104f1e4451",
+    "tools/tests/usb-sync/adapter-test.c": "7dbbc055dd8ab2898e54849b97270a4bc600d1cefd863987a28bc858bd5b7056",
+    "tools/tests/usb-sync/fatfs-test.c": "88be5dbae5cde9b9979cb489c44edb6e5e1ae293a88c5188c8f174f3155b693d",
+    "tools/tests/usb-sync/test.py": "da4b6fdefc52ea67ba0314cd799b38e5f4636d6141092be9ee3eefa140329b6f"
+  },
+  "installed_firmware_sha256": "1cc672b64cc64c1670f8a5c7a76884fd96e53f417eb3bb6fe45694ea9a5afb10",
+  "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+  "new_kernel_required": false,
+  "changes": "Read-only current caching page MODE SENSE(6), one MODE SENSE(10) alternate only after clean completion without usable WCE; triggered only by current 5/20/00 sense after initial clean flush failure; preserve quarantine and reject original write",
+  "tests": {
+    "actual_tinyusb_cases": 18423,
+    "adapter_scenarios": 150,
+    "fatfs_mount_fat32_scenarios": 5,
+    "legacy_usb_cases": 14,
+    "asan_ubsan": "passed",
+    "arm_build": "passed",
+    "core0_stack_reserved": 4096,
+    "core1_stack_reserved": 2048,
+    "option_off_uf2_unchanged": true,
+    "hardware": "pending"
+  },
+  "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
+  "memory": {
+    "flash_bytes": 4807168,
+    "ram_bytes": 380988,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "upstream_pr_changed": false
+}

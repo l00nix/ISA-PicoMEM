@@ -252,8 +252,8 @@ running with the adapter fault latched until PicoMEM restarts.
 
 ## Next investigation
 
-The next step is a bounded read-only query of the drive's current caching mode
-before considering compatibility behavior. Unsupported flush alone does not prove
+A [bounded current cache-mode diagnostic](USB-CACHE-MODE.md) is now built and
+host tested, awaiting hardware validation before considering compatibility behavior. Unsupported flush alone does not prove
 that writes bypass volatile cache, and an unsupported/missing cache-mode page must
 remain unknown. No fallback or cache-setting change is implemented by this result.
 The broader workload, Mac filename/content/FAT check, return trip, DOS compatibility,

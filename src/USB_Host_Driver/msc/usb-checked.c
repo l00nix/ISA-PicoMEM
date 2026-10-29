@@ -69,6 +69,104 @@ void pm_usb_detach(uint8_t dev)
     /* Do not release or repurpose transfer_data, request, or tag while failed. */
 }
 
+/* Diagnostics only: each MODE SENSE variant owns storage permanently. No MODE
+ * SELECT, cache policy change, original-command retry, or quarantine release. */
+#define CACHE_BYTES 64u
+static uint8_t cache_data[2][CACHE_BYTES] __attribute__((aligned(4)));
+static msc_cbw_t cache_request[2];
+static const char *cache_result[2] = {"-", "-"};
+static unsigned cache_index, cache_length;
+static bool cache_waiting, cache_completed;
+
+static bool cache_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
+{
+    const msc_cbw_t *q = &cache_request[cache_index];
+    if (!cache_waiting) return true;
+    cache_result[cache_index] = "reply";
+    if (dev == sense_device && device == sense_device && present() && reply &&
+        reply->cbw && reply->csw && reply->user_arg == q->tag &&
+        !memcmp(reply->cbw, q, sizeof(*q)) &&
+        reply->scsi_data == cache_data[cache_index] &&
+        reply->csw->signature == MSC_CSW_SIGNATURE &&
+        reply->csw->tag == q->tag && reply->csw->data_residue <= CACHE_BYTES) {
+        /* For these queries the pinned transport validates actual DATA bytes
+         * against residue for BOTH success and command-failed CSWs. */
+        if (reply->csw->status <= 1) {
+            cache_completed = true;
+            cache_length = CACHE_BYTES - reply->csw->data_residue;
+            cache_result[cache_index] = reply->csw->status ? "s1" : "ok";
+        } else cache_result[cache_index] = "phase";
+    }
+    cache_waiting = false;
+    return true;
+}
+
+/* Parse one complete caching page, honoring header and descriptor lengths. A
+ * missing/short/malformed page never becomes WCE=0. No policy uses this result. */
+static const char *cache_parse(const uint8_t *b, unsigned n, bool ten)
+{
+    unsigned header = ten ? 8 : 4, total, descriptors, offset, page_size;
+    if (n < header) return "short";
+    total = ten ? ((unsigned)b[0] << 8 | b[1]) + 2 : (unsigned)b[0] + 1;
+    if (total < header || total > n) return "length";
+    descriptors = ten ? (unsigned)b[6] << 8 | b[7] : b[3];
+    /* DBD=1 is requested. If ignored, handle only standard eight-byte block
+     * descriptors. Long-LBA descriptors and unexpected media are left unknown. */
+    if ((ten && (b[4] & 1)) || b[ten ? 2 : 1] || descriptors % 8 ||
+        descriptors > total - header) return "header";
+    offset = header + descriptors;
+    if (total - offset < 2) return "page";
+    if ((b[offset] & 0x7f) != 8) return "page"; /* SPF=0; ignore PS only. */
+    page_size = (unsigned)b[offset + 1] + 2;
+    if (page_size < 20 || page_size != total - offset) return "length";
+    return b[offset + 2] & 4 ? "on" : "off";
+}
+
+/* True permits ONE alternate MODE SENSE variant: only after a fully checked
+ * completed command, with unknown cache state. Ambiguous transport stops here. */
+static bool collect_cache(unsigned index)
+{
+    uint32_t deadline;
+    msc_cbw_t *q = &cache_request[index];
+    cache_index = index;
+    cache_completed = false;
+    cache_result[index] = "skip";
+    if (!present() || device != sense_device || !tuh_msc_ready(device) ||
+        tag == UINT32_MAX) return false;
+    memset(q, 0, sizeof(*q));
+    memset(cache_data[index], 0, CACHE_BYTES);
+    q->signature = MSC_CBW_SIGNATURE;
+    q->tag = ++tag;
+    q->total_bytes = CACHE_BYTES;
+    q->dir = 0x80;
+    q->cmd_len = index ? 10 : 6;
+    q->command[0] = index ? 0x5a : 0x1a;
+    q->command[1] = 8; /* DBD=1, no block descriptors requested. */
+    q->command[2] = 8; /* PC=0 (current), caching page 08, subpage=0. */
+    q->command[index ? 8 : 4] = CACHE_BYTES;
+    cache_waiting = true;
+    deadline = time_us_32() + COMMAND_TIMEOUT_US;
+    if (!tuh_msc_scsi_command(device, q, cache_data[index], cache_complete, q->tag)) {
+        cache_result[index] = "submit";
+        cache_waiting = false;
+        return false;
+    }
+    while (cache_waiting) {
+        tuh_task();
+        if (!cache_waiting) break;
+        if (!present()) { cache_result[index] = "detach"; break; }
+        if ((int32_t)(time_us_32() - deadline) >= 0) {
+            cache_result[index] = "time";
+            break;
+        }
+    }
+    cache_waiting = false;
+    if (!cache_completed) return false;
+    if (!strcmp(cache_result[index], "ok"))
+        cache_result[index] = cache_parse(cache_data[index], cache_length, index != 0);
+    return strcmp(cache_result[index], "on") && strcmp(cache_result[index], "off");
+}
+
 static bool sense_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
 {
     if (!sense_waiting) return true; /* Late completion cannot change the report. */
@@ -137,6 +235,16 @@ static void collect_sense(void)
         key = sense_data[1] & 15; asc = sense_data[2]; ascq = sense_data[3];
     } else { sense_result = "format"; goto report; }
     sense_waiting = false;
+    /* Query only current unsupported-opcode sense. Deferred errors or any
+     * other reason do not authorize follow-up. Original failure stays latched. */
+    if ((format == 0x70 || format == 0x72) && key == 5 && asc == 0x20 && !ascq) {
+        if (collect_cache(0)) (void)collect_cache(1);
+        usb_set_status(sense_device,
+            "?USB fault op=35 f=2 s=1 r=0 d=0 rs=%02x:%x/%02x/%02x n=%u c6=%s c10=%s",
+            (unsigned)format, (unsigned)key, (unsigned)asc, (unsigned)ascq,
+            (unsigned)sense_length, cache_result[0], cache_result[1]);
+        return;
+    }
     usb_set_status(sense_device,
         "?USB fault op=35 f=2 s=1 r=0 d=0 rs=%02x:%x/%02x/%02x n=%u",
         (unsigned)format, (unsigned)key, (unsigned)asc, (unsigned)ascq,
