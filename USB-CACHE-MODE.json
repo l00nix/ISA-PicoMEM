@@ -1,6 +1,6 @@
 {
   "date": "2026-10-29",
-  "status": "Built and host tested; hardware pending; no write policy change",
+  "status": "MODE SENSE(6) phase/transport failure; MODE SENSE(10) skipped; RW release blocked",
   "branch": "codex/usb-sync-lifetime",
   "firmware_base_commit": "a3ceefd22449ed6c84e97d778466528ddbc3e06f",
   "candidate_artifacts_sha256": {
@@ -35,7 +35,7 @@
     "core0_stack_reserved": 4096,
     "core1_stack_reserved": 2048,
     "option_off_uf2_unchanged": true,
-    "hardware": "pending"
+    "hardware": "Boot and eight readbacks passed; one mkdir failed; current unsupported flush sense plus c6=phase c10=-; USB unmounted"
   },
   "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
   "memory": {
@@ -44,5 +44,109 @@
     "scratch_x_bytes": 3748,
     "scratch_y_bytes": 4096
   },
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "hardware": {
+    "date": "2026-10-29",
+    "status": "MODE SENSE(6) phase/transport failure; MODE SENSE(10) skipped; RW release blocked",
+    "firmware_source_commit": "da1707b06b66ed6f45223ac9b174657437fe12ce",
+    "firmware_sha256": "55449b46e26e117a98c0ccd7edc41ff131466cb8617c0e8811dd3fbb3789a560",
+    "kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+    "new_kernel_installed": false,
+    "recovery_backup_verified": true,
+    "firmware_readback_verified": true,
+    "usb_detected_on_boot": true,
+    "reconnect_needed": false,
+    "read_only_baseline": {
+      "RN28A/Renamed Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d771c7166dc97e2f4e636afb5d4df8f57865c48ddf5095af12cd3b2153576a47"
+      },
+      "RN28A/Keep This File.txt": {
+        "bytes": 4,
+        "sha256": "6ca7ea2feefc88ecb5ed6356ed963f47dc9137f82526fdd25d618ea626d0803f"
+      },
+      "LFN Create 28/Created Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d45c5305b8dd48af787ecfd75dcbedbdf6fca682fef83824fb39c5372eafd441"
+      },
+      "LFN Create 28/Nested Long Directory/Child With Spaces.txt": {
+        "bytes": 1025,
+        "sha256": "984c5645a309dbba620349f0efaa17f16288cf8181d91b13efcdc2d9f6dbd2d4"
+      },
+      "LFN Create 28/N26-xxxxxxxxxxxxxxxxxx.txt": {
+        "bytes": 73,
+        "sha256": "fd13e0d898623dfd06aa25d9aeb4e414079f7a2a05be7a5c4ea188a834d7e773"
+      },
+      "PMBEN29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMDIAG29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMERR29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      }
+    },
+    "trigger": {
+      "command": "mkdir /mnt/usb/PMCCH29",
+      "exit_code": 1,
+      "native_error": "/mnt/usb/PMCCH29: cannot create directory",
+      "fresh_name_absent_from_read_only_root_listing": true,
+      "attempts": 1
+    },
+    "raw_status": "?USB fault op=35 f=2 s=1 r=0 d=0 rs=70:5/20/00 n=18 c6=phase c10=-",
+    "first_fault": {
+      "opcode_hex": "35",
+      "category": 2,
+      "status": 1,
+      "residue": 0,
+      "dirty": 0
+    },
+    "request_sense": {
+      "format_hex": "70",
+      "key_hex": "5",
+      "asc_hex": "20",
+      "ascq_hex": "00",
+      "bytes": 18
+    },
+    "cache_mode": {
+      "c6": "phase",
+      "c10": "-",
+      "wce": "unknown"
+    },
+    "interpretation": "Initial flush reports current unsupported-opcode sense. MODE SENSE(6) yielded status2, either actual phase error or synthetic checked-transport failure; alternate MODE SENSE(10) was not attempted. Cache setting remains unknown.",
+    "unsupported_flush_opcode_confirmed": true,
+    "unsupported_mode_sense_opcode_confirmed": false,
+    "cache_mode_known": false,
+    "no_sector_write_submitted_by_this_attempt": {
+      "inferred": true,
+      "basis": "First-write flush failure returned before WRITE(10); dirty=0; validated control flow/cached response, no physical USB trace"
+    },
+    "write_retry": false,
+    "cache_settings_changed": false,
+    "usb_unmounted_successfully": true,
+    "sd_mounted_or_written": false,
+    "physical_fault_injection": false,
+    "initial_stack": {
+      "firmware_used": 1736,
+      "firmware_reserved": 4096,
+      "kernel_used": 426,
+      "kernel_reserved": 700,
+      "flags": 0,
+      "invalid": 0
+    },
+    "runtime_fault_stack_peak": "not measured",
+    "screenshot": {
+      "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount/pmstat, explicitly saved native error, summary from verified baseline",
+      "video_sha256": "155f164f34932aabb038a99aef9c25f692121533cf9aec92b408698c2c01489b",
+      "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+      "png_sha256": "0386c7f7e65009647274437399588fba923ce4e1acda995370c864f4158e07f0"
+    },
+    "next_step": "Expose bounded first transport fault stage/event/length/CSW details without further USB commands; distinguish synthetic transport error from real phase status; no bypass or write retries",
+    "mac_fat_check": "pending",
+    "dos_compatibility": "pending"
+  }
 }

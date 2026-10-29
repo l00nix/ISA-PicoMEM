@@ -1,7 +1,7 @@
 # USB current cache-mode diagnostic
 
 I am testing a firmware-only follow-up to the [Kingston sense result](USB-SYNC-LIFETIME.md#request-sense-hardware-result).
-**This candidate is built and host tested, but has not been flashed or tested on hardware.**
+**PPC512 reads pass, but MODE SENSE(6) hit a phase/transport failure and MODE SENSE(10) was skipped. The Kingston cache state remains unknown; USB writes remain blocked.**
 It reports the drive's current write-cache enable bit when available. It does not
 change cache settings, bypass synchronization or make the failed write succeed.
 The existing diagnostics ELKS kernel and utilities are sufficient.
@@ -79,24 +79,51 @@ sector writes even when the cache page reports `off`.
 Both ARM builds pass. The option-OFF UF2 is byte-identical to the preceding OFF
 artifact. The candidate uses 4,807,168 FLASH bytes and 380,988 RAM bytes, an increase
 of 208 RAM bytes over the installed sense diagnostic. Core 0 retains 4096 stack
-bytes and core 1 retains 2048, with no scratch overlap. Runtime stack peaks and
-hardware behavior remain unmeasured. [Artifact/source hashes](USB-CACHE-MODE.json).
+bytes and core 1 retains 2048, with no scratch overlap. Fault-path runtime stack peaks remain unmeasured; the hardware result is below. [Artifact/source hashes](USB-CACHE-MODE.json).
 
 Build with the same pinned dependencies and `PICOMEM_EXPERIMENTAL_USB_SYNC=ON`
 configuration described in [the base experiment](USB-SYNC-LIFETIME.md#build).
 Run `python3 tools/tests/usb-sync/test.py` and the stack-layout checker against the
 new link map. No ELKS build or upstream PR change is part of this milestone.
 
-## Hardware plan
+## PPC512 hardware result — October 29, 2026
 
-After physical readiness is confirmed, I will check/unmount USB and SD, shut down
-ELKS, verify the installed sense firmware, save and readback-verify a fresh full
-16 MiB recovery image, then flash/readback-verify this candidate. After startup I
-will check detection and all eight retained files read-only, confirm the fresh
-`PMCCH29` name is absent, unmount, mount explicitly read/write and make one bounded
-`mkdir` attempt to trigger diagnostics. The expected outcome remains a failed
-write with additional cached status. I will capture the native error/status,
-unmount and stop; no retry or real-media fault injection is planned.
+The installed firmware matched the prior sense diagnostic. The fresh full 16 MiB
+recovery backup and candidate readback both passed. ELKS booted with its existing
+kernel, USB appeared immediately, and all eight retained files passed full-content
+checks through a read-only mount. Initial stack readings were 1736/4096 firmware
+bytes and 426/700 kernel bytes, with flags and invalid counts zero. These do not
+measure the later fault-path peak.
 
-The next policy decision depends on the actual report. Full workload, Mac/FAT
-verification and DOS compatibility remain gated on resolving cache behavior.
+After unmounting and explicitly mounting read/write, I made one fresh
+`mkdir /mnt/usb/PMCCH29` attempt. The name was absent from the preceding directory
+listing. It returned exit 1 and `/mnt/usb/PMCCH29: cannot create directory`.
+The cached status was:
+
+```text
+?USB fault op=35 f=2 s=1 r=0 d=0 rs=70:5/20/00 n=18 c6=phase c10=-
+```
+
+The original flush still reports unsupported-opcode sense. The six-byte cache
+query yielded status 2. That may be a device-reported phase error or the checked
+TinyUSB layer's synthetic error for a stall, invalid transfer, bad CSW or length
+mismatch. This build does not retain the underlying transport details, so none of
+those causes is established. It does not prove MODE SENSE is unsupported.
+The alternate query was correctly skipped, and WCE remains unknown.
+
+The first-write guard returned before WRITE(10) submission, inferred from the
+firmware control flow and cached result; no physical USB trace was taken. There
+was no retry or cache-setting change. USB unmounted successfully, SD stayed
+unmounted and ELKS remains running with the adapter fault latched until restart.
+
+[Native screenshot and evidence](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#cache-mode-ppc512-result).
+
+## Next diagnostic
+
+I need to preserve the first transport fault's stage, event, actual/expected byte
+counts and available CSW validation fields before the checked layer substitutes
+status 2. This should add cached evidence without issuing more USB commands or
+weakening the write guard. No such follow-up is implemented or staged yet.
+The result will determine whether transport handling needs correction or another
+query is justified. Missing cache information cannot justify a flush bypass.
+Full workload, Mac/FAT verification and DOS compatibility remain pending.
