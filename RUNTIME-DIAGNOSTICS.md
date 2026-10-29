@@ -1,8 +1,8 @@
 # Optional file-service timing and stack diagnostics
 
-I am preparing a default-off diagnostic build for PicoMEM 2 to measure the
-existing long-name workload. Hardware measurements are pending. The upstream
-metadata-only draft PR remains unchanged.
+I have tested this default-off diagnostic build for PicoMEM 2 on the PPC512
+with the existing long-name workload. All 18 batches and seven full-file checks
+after remount passed. The upstream metadata-only draft PR remains unchanged.
 
 Enable `PICOMEM_EXPERIMENTAL_DIAG=ON` alongside the existing LFN, creation,
 rename and `PICOMEM_EXPERIMENTAL_STACK_RESERVE=ON` options. Other boards are
@@ -24,6 +24,25 @@ below the live frame, and touches only the reserved core-0 bank. Querying
 scans under masked interrupts. It includes instrumentation and core-0
 interrupt stack use since reset; it does not measure core 1. A watermark is
 an observed workload peak, not a worst-case bound or overflow prevention.
+
+## PPC512 results — October 29, 2026
+
+The observed core-0 peak was **2732 of 4096 bytes**, leaving 1364 bytes in this
+workload. That exceeds the old 2048-byte reservation by 684 bytes, supporting
+the larger reservation without proving a worst-case bound. Firmware diagnostic
+flags and companion kernel invalid-paint counts remained zero.
+
+The report counted 1579 commands totaling 127.844409 seconds, including fixture
+setup and verification reads. Open and close accounted for 57.4% of cumulative
+service time. These are whole-command timings, including PSRAM restoration;
+they do not isolate FatFs internals or justify weakening synchronization.
+The host workload passed before unmounting. After clean USB remount, the native
+diagnostic query and all seven retained file hashes passed again. SD was not
+written. No power-loss or media-error injection was performed.
+
+[Detailed timings, stack readings, screenshot and raw evidence](https://github.com/l00nix/picomem-elks/blob/codex/runtime-diagnostics/docs/RUNTIME-DIAGNOSTICS.md#ppc512-results--october-29-2026).
+Tested UF2 SHA-256:
+`3a52312588f0333c5588a897a64fdd6ebc24b70b38f1fce3e02f8b3ca98c01e5`.
 
 ## Independent experimental protocol
 
@@ -80,5 +99,5 @@ python3 tools/check-stack-reserve.py build-arm-diag/picomem.elf.map
 
 With diagnostics disabled, the stack-reservation build reproduces the tested
 UF2 SHA-256 `4e144a3ed4f1a40db9da79043fe4660fe9e0c4f8a71253f962622a2e46efef13`.
-The diagnostic candidate requires a new verified recovery backup and physical
-flash coordination before hardware tests. This is not a release candidate.
+The full flash recovery backup and diagnostic firmware both passed readback
+verification before the hardware test. This is not a release candidate.
