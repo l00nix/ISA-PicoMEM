@@ -105,5 +105,5 @@ verification before the hardware test. This is not a release candidate.
 The next [file-service error candidate](FILE-SERVICE-ERRORS.md) checks close and
 metadata failures and propagates USB transfer errors. Its host tests, 18 PPC512
 workload batches and eight file checks after remount passed. Direct Mac names,
-contents, read-only FAT checks and return-trip remount passed too; DOS testing
-remains pending.
+contents, read-only FAT checks, return-trip remount and MS-DOS 6.22 compatibility
+passed too. Device-cache flushing and safe timeout recovery remain unfinished.

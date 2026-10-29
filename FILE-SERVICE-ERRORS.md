@@ -4,8 +4,7 @@ I am testing a default-off correctness candidate on top of the
 [runtime diagnostics branch](RUNTIME-DIAGNOSTICS.md). Host tests and the ARM build
 pass. **All 18 PPC512 normal-workload batches and eight full-file checks after
 remount passed.** Direct Mac filenames/contents and a read-only FAT check also
-passed, as did the return-trip remount and eight full-file checks. DOS testing
-is pending for this build. It is
+passed, as did the return-trip remount and MS-DOS 6.22 compatibility checks. It is
 not a release candidate. The existing diagnostics ELKS kernel can consume these
 errors; no kernel update or new wire opcode is needed.
 
@@ -131,7 +130,14 @@ persistence. Direct Mac reads verified all eight exact long filenames and file
 contents. After clean unmount, `diskutil verifyVolume` ran `fsck_msdos -n` and
 reported exit code 0. After safe ejection and return to PicoMEM, remount and all
 eight file checks passed again. The later ELKS stack observation was 402/700
-bytes, still with no diagnostic flags or invalid samples. DOS compatibility
-remains pending.
+bytes, still with no diagnostic flags or invalid samples.
+
+MS-DOS 6.22 subsequently read all eight retained fixtures through 8.3 aliases.
+A fresh temporary file passed create/write/append/truncate/readback, ordinary
+DOS rename and deletion, with host byte checks and DOS-side CRCs. All eight
+fixtures remained unchanged afterward. The HDD root and all four ROM descriptors
+also checked successfully. The PPC was left at the DOS prompt with patched
+CMTEST and RMTDOS resident. This covers normal legacy operation, not physical
+fault recovery or power-loss durability.
 
 [Hardware evidence and screenshot](https://github.com/l00nix/picomem-elks/blob/codex/file-service-errors/docs/FILE-SERVICE-ERRORS.md#ppc512-results--october-29-2026).
