@@ -1,7 +1,7 @@
 # USB cache synchronization and transfer lifetime candidate
 
 I am testing a firmware-only follow-up to [file-service error reporting](FILE-SERVICE-ERRORS.md).
-**PPC512 read checks passed, but the first write failed. A diagnostic follow-up is prepared; DOS validation is pending.**
+**The diagnostic follow-up identified a device-reported failure of SYNCHRONIZE CACHE(10). Reads pass, but USB writes remain blocked; DOS validation is pending.**
 This is a default-off experiment, not a USB read/write release candidate. The
 existing diagnostics ELKS kernel and utilities are sufficient; SD stays read-only.
 
@@ -130,7 +130,7 @@ flush checks, error responses and quarantine rules. There are no retries, sense
 requests, fallback writes or new USB commands. Mount/removal status messages cannot
 overwrite a fault. A clean restart is still required to resume USB I/O.
 
-Example from a host test, **not yet a PPC observation**:
+Captured on the PPC512 by the diagnostic follow-up:
 `?USB fault op=35 f=2 s=1 r=0 d=0`.
 
 - `op`: attempted SCSI opcode in hex (`28` read, `2a` write, `35` flush).
@@ -149,10 +149,50 @@ reconnect attempts. ARM build and stack layout pass. It uses 4,805,672 FLASH byt
 and 380,704 RAM bytes, four more RAM bytes than the first candidate. Runtime fault
 reporting stack usage still needs measurement. See [follow-up hashes](USB-SYNC-FAULT-STATUS.json).
 
+## Diagnostic PPC512 result — October 29, 2026
+
+The recovery backup and diagnostic firmware readback passed. ELKS booted and
+PicoMEM detected the Kingston without another reconnect. All eight existing files
+again passed full-content checks through a read-only mount. The fresh `PMSYD29`
+attempt failed at its initial `mkdir`; no workload batch ran.
+
+`pmstat --usb` returned `op=35 f=2 s=1 r=0 d=0`. This identifies a structurally
+validated completion of SYNCHRONIZE CACHE(10) with command-failed status, zero
+residue and a clear dirty flag. The pre-write flush probe returns on that error
+before submitting WRITE(10), so this attempt stopped before sector writes. That
+last conclusion follows from the validated firmware control flow and fault
+record; no physical USB trace was taken. It does not retroactively establish the
+exact sector history of the earlier candidate's attempt.
+
+Status 1 is a command failure, without the detailed sense reason. It does not
+prove that the opcode is unsupported. No REQUEST SENSE response was collected,
+and the write safeguard has not been bypassed. USB unmounted successfully; ELKS
+remains running. SD stayed unmounted. The initial stack readings remained
+1612/4096 firmware bytes and 418/700 ELKS bytes with flags/invalid counts zero;
+the stack peak during failure reporting was not measured.
+
+[Native screenshot and full evidence](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#diagnostic-ppc512-result).
+
+The next proposed diagnostic is one bounded read-only REQUEST SENSE after a
+fully validated command-failed completion, preserving the original failure and
+keeping writes blocked. It must not run after a timeout or ambiguous transport
+completion; its request/data storage must also survive late completion. Parsing
+must distinguish fixed/descriptor sense formats and validate actual lengths.
+Sense data can distinguish invalid opcode, invalid command fields and other
+conditions. Missing or unsupported sense/cache queries must not be treated as
+proof that the drive has no volatile write cache. No fallback that reports a
+failed flush as success is justified by this result.
+
+The [USB BOT status definitions](https://www.usb.org/sites/default/files/usbmassbulk_10.pdf)
+identify status 1 as command failure. The [T10 sense-code list](https://www.t10.org/lists/asc-num.txt)
+distinguishes invalid opcode (20/00) from invalid command fields (24/00); neither
+code has yet been observed on this Kingston.
+
 ## Hardware validation still required
 
-The PPC is running ELKS with USB unmounted after the failed first write. For the
-diagnostic follow-up, confirm physical readiness, then cleanly shut down. After physical readiness is confirmed, save and readback-verify a
+The PPC is running ELKS with USB unmounted after the diagnostic test. Another
+write test requires a reviewed follow-up; do not repeat writes on the faulted
+session. No REQUEST SENSE follow-up firmware has been implemented or staged yet. After physical readiness is confirmed, save and readback-verify a
 fresh full 16 MiB PicoMEM flash backup before flashing this candidate. Verify the
 candidate's readback too. No kernel change is planned.
 

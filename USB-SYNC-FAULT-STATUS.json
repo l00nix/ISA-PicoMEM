@@ -1,6 +1,6 @@
 {
   "date": "2026-10-29",
-  "status": "diagnostic-only follow-up host-tested; NOT flashed",
+  "status": "first-write cache-flush rejection identified; USB read/write release blocked",
   "branch": "codex/usb-sync-lifetime",
   "firmware_base_commit": "d5d29e00b1fa7df43695c72a5c568b59eab40bb8",
   "candidate_artifacts_sha256": {
@@ -31,7 +31,7 @@
     "core0_stack_reserved": 4096,
     "core1_stack_reserved": 2048,
     "option_off_uf2_unchanged_from_previous_off_build": true,
-    "hardware": "pending"
+    "hardware": "Validated status1 cache-flush rejection captured; USB unmounted; writes remain blocked"
   },
   "memory": {
     "flash_bytes": 4805672,
@@ -39,5 +39,97 @@
     "scratch_x_bytes": 3748,
     "scratch_y_bytes": 4096
   },
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "hardware": {
+    "date": "2026-10-29",
+    "status": "first-write cache-flush rejection identified; USB read/write release blocked",
+    "firmware_source_commit": "4ba024d3417f5a6df2220965475dbfdc604f1650",
+    "firmware_sha256": "015f79bb11dc0ea7ca20131a0e8236d41ae78807e2bb0c8e780dfb0e8c2f0f9b",
+    "kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+    "new_kernel_installed": false,
+    "recovery_backup_verified": true,
+    "firmware_readback_verified": true,
+    "usb_detected_on_boot": true,
+    "reconnect_needed": false,
+    "read_only_baseline": {
+      "RN28A/Renamed Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d771c7166dc97e2f4e636afb5d4df8f57865c48ddf5095af12cd3b2153576a47"
+      },
+      "RN28A/Keep This File.txt": {
+        "bytes": 4,
+        "sha256": "6ca7ea2feefc88ecb5ed6356ed963f47dc9137f82526fdd25d618ea626d0803f"
+      },
+      "LFN Create 28/Created Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d45c5305b8dd48af787ecfd75dcbedbdf6fca682fef83824fb39c5372eafd441"
+      },
+      "LFN Create 28/Nested Long Directory/Child With Spaces.txt": {
+        "bytes": 1025,
+        "sha256": "984c5645a309dbba620349f0efaa17f16288cf8181d91b13efcdc2d9f6dbd2d4"
+      },
+      "LFN Create 28/N26-xxxxxxxxxxxxxxxxxx.txt": {
+        "bytes": 73,
+        "sha256": "fd13e0d898623dfd06aa25d9aeb4e414079f7a2a05be7a5c4ea188a834d7e773"
+      },
+      "PMBEN29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMDIAG29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMERR29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      }
+    },
+    "workload": {
+      "status": "incomplete",
+      "clock": "host time.perf_counter_ns",
+      "metric": "batch wall time including transport and TTY; not firmware service time",
+      "directory": "/mnt/usb/PMSYD29",
+      "samples": [],
+      "error": "Workload failed or timed out: # /root/pmbench29 /mnt/usb/PMSYD29\r\r\nPMBENCH FAIL NEW directory (must not exist): I/O error \r\n",
+      "median_ms_per_iteration": {}
+    },
+    "first_fault": {
+      "opcode_hex": "35",
+      "category": 2,
+      "status": 1,
+      "residue": 0,
+      "dirty": 0
+    },
+    "interpretation": "Valid completion of SYNCHRONIZE CACHE(10) reported command failed; this is not a timeout or synthetic phase error",
+    "no_sector_write_submitted_by_this_attempt": {
+      "inferred": true,
+      "basis": "First-write flush probe failed and returned before WRITE(10) submission; first fault dirty=0; no bus trace was captured"
+    },
+    "request_sense_collected": false,
+    "unsupported_opcode_confirmed": false,
+    "unsupported_opcode_note": "CSW status1 alone does not distinguish unsupported opcode, invalid CDB field, unit attention or other command errors",
+    "usb_unmounted_successfully": true,
+    "write_retry": false,
+    "sd_mounted_or_written": false,
+    "physical_fault_injection": false,
+    "runtime_fault_stack_peak": "not measured; file-service session failed",
+    "initial_stack": {
+      "firmware_used": 1612,
+      "firmware_reserved": 4096,
+      "kernel_used": 418,
+      "kernel_reserved": 700,
+      "flags": 0,
+      "invalid": 0
+    },
+    "screenshot": {
+      "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount/pmstat, explicitly saved native error, summary from verified baseline",
+      "video_sha256": "b058128934bd183e3dd10123c47a64d90ab679d734daf03f228d2de55edfca29",
+      "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+      "png_sha256": "7284d686f529eb9be8fe3f132f662af77cf6df799fb313cf8ff1e34f11f1fd6f"
+    },
+    "next_step": "Design a bounded read-only REQUEST SENSE diagnostic after a validated status1 completion; keep all writes blocked; no bypass based on status1 alone",
+    "mac_fat_check": "pending",
+    "dos_compatibility": "pending"
+  }
 }
