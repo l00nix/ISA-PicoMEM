@@ -3,8 +3,9 @@
 I am testing the LFN rename candidate's stack use and latency before considering
 a release candidate. This branch adds an opt-in stack reservation for PicoMEM 2;
 it is not a new file-service protocol. It has been flashed with verified
-readback after saving a verified full recovery image; the ELKS reboot and
-runtime workload are still pending. The upstream metadata-only draft PR is unchanged.
+readback after saving a verified full recovery image. ELKS boot and the first
+18-batch runtime workload passed, including full-file checks after remounting.
+The upstream metadata-only draft PR is unchanged.
 
 ## Compiler audit
 
@@ -64,6 +65,22 @@ existing rename build still produces its tested UF2 SHA-256:
 `79055e63295aad3901d23ff17a93882ec3cf3cc8c5dd4702c36a5205626e31c8`.
 Reserving 4 KiB is not proof that every firmware path fits. Runtime stack
 high-water/guard checks remain required before a release-candidate claim.
+
+## PPC512 results — October 29, 2026
+
+The firmware booted ELKS with the existing rename kernel. The USB drive mounted
+read/write and passed 18 host-timed batches: reads, writes, rename pairs,
+create/write/delete and directory create/remove, plus no-op baseline batches.
+The new payload and five earlier fixtures passed full host reads afterward
+and again after clean unmount/remount. No SD writes or kernel changes were
+made. Firmware UF2 SHA-256:
+`4e144a3ed4f1a40db9da79043fe4660fe9e0c4f8a71253f962622a2e46efef13`.
+
+[PPC timings, screenshot and validation data](https://github.com/l00nix/picomem-elks/blob/codex/runtime-validation/docs/RUNTIME-VALIDATION.md).
+These are end-to-end timings including telnet/TTY overhead; the no-op batch
+alone took about one second. Actual peak stack use and firmware-only service
+timings are still unmeasured. This is not a release candidate or a power-loss
+recovery test.
 
 ## Latency
 
