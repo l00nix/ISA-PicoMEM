@@ -1,7 +1,7 @@
 # USB cache synchronization and transfer lifetime candidate
 
 I am testing a firmware-only follow-up to [file-service error reporting](FILE-SERVICE-ERRORS.md).
-**The diagnostic follow-up identified a device-reported failure of SYNCHRONIZE CACHE(10). Reads pass, but USB writes remain blocked; DOS validation is pending.**
+**The Kingston now reports invalid command operation code for SYNCHRONIZE CACHE(10), confirmed by REQUEST SENSE. Reads pass; USB writes remain blocked while I investigate its cache behavior.**
 This is a default-off experiment, not a USB read/write release candidate. The
 existing diagnostics ELKS kernel and utilities are sufficient; SD stays read-only.
 
@@ -174,8 +174,7 @@ the stack peak during failure reporting was not measured.
 
 [Native screenshot and full evidence](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#diagnostic-ppc512-result).
 
-The next diagnostic is now implemented and host tested, as described below.
-It has not yet been flashed or tested on the Kingston. Sense data can distinguish
+The next diagnostic is implemented and hardware tested, as described below. Sense data can distinguish
 invalid opcode, invalid command fields and other conditions. Missing or unsupported
 sense/cache queries must not be treated as proof that the drive has no volatile
 write cache. No fallback that reports a failed flush as success is justified by
@@ -183,10 +182,10 @@ this result.
 
 The [USB BOT status definitions](https://www.usb.org/sites/default/files/usbmassbulk_10.pdf)
 identify status 1 as command failure. The [T10 sense-code list](https://www.t10.org/lists/asc-num.txt)
-distinguishes invalid opcode (20/00) from invalid command fields (24/00); neither
-code has yet been observed on this Kingston.
+distinguishes invalid opcode (20/00) from invalid command fields (24/00). The
+REQUEST SENSE follow-up below captured 20/00 on this Kingston.
 
-## REQUEST SENSE follow-up — built, hardware pending
+## REQUEST SENSE follow-up
 
 I added one read-only REQUEST SENSE(6), allocation length 18, DESC=0, LUN=0,
 after the initial clean SYNCHRONIZE CACHE failure. Eligibility requires a fully
@@ -208,9 +207,8 @@ complete eight-byte header. Only those header fields are decoded. Trailing sense
 descriptors are neither requested in full nor interpreted.
 
 `pmstat --usb` retains the original fault fields and appends
-`rs=FORMAT:KEY/ASC/ASCQ n=BYTES` (hex codes, decimal byte count). For example,
-`rs=70:5/20/00 n=18` would mean current fixed-format illegal-request / invalid
-opcode. **This is a host-test example, not an observed Kingston result.** Formats
+`rs=FORMAT:KEY/ASC/ASCQ n=BYTES` (hex codes, decimal byte count). The Kingston returned
+`rs=70:5/20/00 n=18`: current fixed-format illegal-request / invalid opcode. Formats
 71/73 identify deferred errors and must not be described as current-command errors.
 If trustworthy header fields are unavailable, the suffix is `rs=short`, `format`,
 `reply`, `status`, `submit`, `timeout`, `detach` or `skip`; it does not invent sense
@@ -227,25 +225,40 @@ The candidate uses 4,805,808 FLASH bytes and 380,780 RAM bytes. Core 0 retains 4
 stack bytes and core 1 retains 2048, with no scratch overlap. Fault-path runtime
 stack use remains unmeasured. [Candidate hashes and tests](USB-REQUEST-SENSE.json).
 
-## Hardware validation still required
+## REQUEST SENSE hardware result
 
-The PPC remains on the preceding diagnostic firmware with USB unmounted and its
-fault latched. After physical readiness is confirmed, I will save and readback-verify
-a fresh full 16 MiB flash backup, then flash and readback-verify this candidate.
-No ELKS kernel change is required.
+The fresh full 16 MiB recovery backup and firmware readback passed. ELKS booted
+with the existing kernel; USB appeared immediately without reconnecting. All eight
+retained files matched their expected full contents through a read-only mount.
+Initial stack use was 1624/4096 firmware bytes and 426/700 ELKS bytes, with zero
+flags/invalid counts. The peak during fault reporting was not measured.
 
-After normal startup, I will check USB detection and all eight retained files
-through a read-only mount. The diagnostic trigger will be one fresh bounded
-`mkdir` in `PMSEN29`, after a clean unmount and explicit read/write mount. On failure,
-I will capture the native error and cached USB status, unmount and stop. I will not
-reuse `PMSYNC29` or `PMSYD29`, retry writes on a faulted session, or unplug a mounted
-device. SD stays unmounted; no real-media fault injection is planned.
+After a clean unmount and explicit read/write mount, one `mkdir /mnt/usb/PMSEN29`
+returned exit 1 and `/mnt/usb/PMSEN29: cannot create directory`. The fresh name was
+absent from the preceding root listing. `pmstat --usb` then returned:
 
-A confirmed unsupported opcode still needs a justified cache policy before any
-fallback. The broader 18-batch workload, Mac filename/content/FAT check, return
-trip, DOS compatibility, timing and stack checks remain gated on resolving this
-failure. This diagnostic alone does not make the firmware a read/write release
-candidate.
+```text
+?USB fault op=35 f=2 s=1 r=0 d=0 rs=70:5/20/00 n=18
+```
+
+The validated 18-byte sense reply reports ILLEGAL REQUEST / INVALID COMMAND
+OPERATION CODE, confirming the drive rejects SYNCHRONIZE CACHE(10). The first-write
+flush guard returned before WRITE(10) submission. That conclusion follows from
+the firmware control flow and cached response, not a physical USB trace.
+I made no retry; USB unmounted successfully. SD stayed unmounted. ELKS remains
+running with the adapter fault latched until PicoMEM restarts.
+
+[Native screenshot and evidence](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#request-sense-ppc512-result).
+
+## Next investigation
+
+The next step is a bounded read-only query of the drive's current caching mode
+before considering compatibility behavior. Unsupported flush alone does not prove
+that writes bypass volatile cache, and an unsupported/missing cache-mode page must
+remain unknown. No fallback or cache-setting change is implemented by this result.
+The broader workload, Mac filename/content/FAT check, return trip, DOS compatibility,
+and timing/stack checks remain gated on resolving this failure. This diagnostic
+alone does not make the firmware a read/write release candidate.
 
 Automatic controller cancellation/reset recovery is still open. In the pinned
 RP2040/RP2350 host driver, `hcd_edpt_abort_xfer` is unimplemented and returns false.

@@ -1,6 +1,6 @@
 {
   "date": "2026-10-29",
-  "status": "Host tested and built; hardware test pending; USB writes remain blocked after flush failure",
+  "status": "Kingston reports invalid command operation code for SYNCHRONIZE CACHE(10); RW release blocked",
   "branch": "codex/usb-sync-lifetime",
   "firmware_base_commit": "cbbc136640a789b3e5c56dd8db99952f5afc2cdf",
   "candidate_artifacts_sha256": {
@@ -35,7 +35,7 @@
     "core0_stack_reserved": 4096,
     "core1_stack_reserved": 2048,
     "option_off_uf2_unchanged": true,
-    "hardware": "pending"
+    "hardware": "Boot and eight readbacks passed; one mkdir failed; validated sense 70:5/20/00 n=18; USB unmounted"
   },
   "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
   "memory": {
@@ -44,5 +44,102 @@
     "scratch_x_bytes": 3748,
     "scratch_y_bytes": 4096
   },
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "hardware": {
+    "date": "2026-10-29",
+    "status": "Kingston reports invalid command operation code for SYNCHRONIZE CACHE(10); RW release blocked",
+    "firmware_source_commit": "0d21e638180594786025ef31d7a940f6673b9bb1",
+    "firmware_sha256": "1cc672b64cc64c1670f8a5c7a76884fd96e53f417eb3bb6fe45694ea9a5afb10",
+    "kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+    "new_kernel_installed": false,
+    "recovery_backup_verified": true,
+    "firmware_readback_verified": true,
+    "usb_detected_on_boot": true,
+    "reconnect_needed": false,
+    "read_only_baseline": {
+      "RN28A/Renamed Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d771c7166dc97e2f4e636afb5d4df8f57865c48ddf5095af12cd3b2153576a47"
+      },
+      "RN28A/Keep This File.txt": {
+        "bytes": 4,
+        "sha256": "6ca7ea2feefc88ecb5ed6356ed963f47dc9137f82526fdd25d618ea626d0803f"
+      },
+      "LFN Create 28/Created Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d45c5305b8dd48af787ecfd75dcbedbdf6fca682fef83824fb39c5372eafd441"
+      },
+      "LFN Create 28/Nested Long Directory/Child With Spaces.txt": {
+        "bytes": 1025,
+        "sha256": "984c5645a309dbba620349f0efaa17f16288cf8181d91b13efcdc2d9f6dbd2d4"
+      },
+      "LFN Create 28/N26-xxxxxxxxxxxxxxxxxx.txt": {
+        "bytes": 73,
+        "sha256": "fd13e0d898623dfd06aa25d9aeb4e414079f7a2a05be7a5c4ea188a834d7e773"
+      },
+      "PMBEN29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMDIAG29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMERR29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      }
+    },
+    "trigger": {
+      "command": "mkdir /mnt/usb/PMSEN29",
+      "exit_code": 1,
+      "native_error": "/mnt/usb/PMSEN29: cannot create directory",
+      "fresh_name_absent_from_read_only_root_listing": true,
+      "attempts": 1
+    },
+    "raw_status": "?USB fault op=35 f=2 s=1 r=0 d=0 rs=70:5/20/00 n=18",
+    "first_fault": {
+      "opcode_hex": "35",
+      "category": 2,
+      "status": 1,
+      "residue": 0,
+      "dirty": 0
+    },
+    "request_sense": {
+      "format_hex": "70",
+      "key_hex": "5",
+      "asc_hex": "20",
+      "ascq_hex": "00",
+      "bytes": 18
+    },
+    "interpretation": "Current fixed-format sense: ILLEGAL REQUEST / INVALID COMMAND OPERATION CODE for SYNCHRONIZE CACHE(10)",
+    "unsupported_opcode_confirmed": true,
+    "cache_mode_known": false,
+    "no_sector_write_submitted_by_this_attempt": {
+      "inferred": true,
+      "basis": "First-write flush returned failure before WRITE(10), dirty=0; validated control flow and cached response; no physical USB trace"
+    },
+    "write_retry": false,
+    "usb_unmounted_successfully": true,
+    "sd_mounted_or_written": false,
+    "physical_fault_injection": false,
+    "initial_stack": {
+      "firmware_used": 1624,
+      "firmware_reserved": 4096,
+      "kernel_used": 426,
+      "kernel_reserved": 700,
+      "flags": 0,
+      "invalid": 0
+    },
+    "runtime_fault_stack_peak": "not measured",
+    "screenshot": {
+      "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount/pmstat, explicitly saved native error, summary from verified baseline",
+      "video_sha256": "305ac849aa64806199818ede20de1a1664d2b7d48e7783596a00ce3bee7c2da2",
+      "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+      "png_sha256": "6f8b0cbc1d718bf127a81e43b325c911e757728f680cadee5d71f575c2b77a78"
+    },
+    "next_step": "Read-only cache-mode investigation before any compatibility policy; unsupported flush alone does not prove no volatile write cache",
+    "mac_fat_check": "pending",
+    "dos_compatibility": "pending"
+  }
 }
