@@ -3,7 +3,8 @@
 I am testing a default-off correctness candidate on top of the
 [runtime diagnostics branch](RUNTIME-DIAGNOSTICS.md). Host tests and the ARM build
 pass. **All 18 PPC512 normal-workload batches and eight full-file checks after
-remount passed.** Direct Mac FAT and DOS checks are pending for this build. It is
+remount passed.** Direct Mac filenames/contents and a read-only FAT check also
+passed. Return-trip and DOS checks are pending for this build. It is
 not a release candidate. The existing diagnostics ELKS kernel can consume these
 errors; no kernel update or new wire opcode is needed.
 
@@ -125,7 +126,9 @@ not mounted. No physical fault injection was performed.
 The observed firmware stack peak was 2812/4096 bytes; the ELKS workload peak was
 354/700 bytes (426 initially before reset). Diagnostic flags and invalid samples
 were zero. These observations do not prove worst-case bounds or power-loss
-persistence. USB is unmounted for independent Mac checking; that check and DOS
-compatibility remain pending.
+persistence. Direct Mac reads verified all eight exact long filenames and file
+contents. After clean unmount, `diskutil verifyVolume` ran `fsck_msdos -n` and
+reported exit code 0. The Kingston was safely ejected. Return-trip remount and
+DOS compatibility remain pending.
 
 [Hardware evidence and screenshot](https://github.com/l00nix/picomem-elks/blob/codex/file-service-errors/docs/FILE-SERVICE-ERRORS.md#ppc512-results--october-29-2026).
