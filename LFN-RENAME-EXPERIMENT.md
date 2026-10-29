@@ -112,3 +112,7 @@ This remains experimental; no new upstream PR or release-candidate claim.
 Direct Mac checks also passed: exact long filenames, complete payload matches,
 unchanged creation fixtures, and `fsck_msdos -n` exit code 0 after clean unmount.
 No filesystem repair was requested; the stick was safely ejected afterward.
+
+The Mac-to-PicoMEM roundtrip passed too: ELKS remounted USB without rebooting,
+and full independent reads matched both rename fixtures and all three earlier
+creation fixtures. The old and intermediate names were absent.
