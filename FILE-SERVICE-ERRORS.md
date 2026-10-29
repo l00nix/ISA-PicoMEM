@@ -2,7 +2,8 @@
 
 I am testing a default-off correctness candidate on top of the
 [runtime diagnostics branch](RUNTIME-DIAGNOSTICS.md). Host tests and the ARM build
-pass. **This candidate has not yet been flashed or tested on the PPC512.** It is
+pass. **All 18 PPC512 normal-workload batches and eight full-file checks after
+remount passed.** Direct Mac FAT and DOS checks are pending for this build. It is
 not a release candidate. The existing diagnostics ELKS kernel can consume these
 errors; no kernel update or new wire opcode is needed.
 
@@ -112,3 +113,19 @@ stay on disposable host images; real-media destructive recovery is separate work
 Open and close accounted for 57.4% of the preceding workload's firmware service
 time. OPEN still performs both `f_open` and `f_stat`; CLOSE still flushes. Any
 optimization needs separate metadata/identity and persistence evidence.
+
+## PPC512 validation — October 29, 2026
+
+I saved/verified the full recovery image, flashed/verified this firmware and kept
+the existing diagnostics kernel. The Kingston mounted read/write normally. All
+18 bounded workload batches in fresh `PMERR29` passed. Seven old fixtures and the
+new 3073-byte payload matched every byte before and after clean remount. SD was
+not mounted. No physical fault injection was performed.
+
+The observed firmware stack peak was 2812/4096 bytes; the ELKS workload peak was
+354/700 bytes (426 initially before reset). Diagnostic flags and invalid samples
+were zero. These observations do not prove worst-case bounds or power-loss
+persistence. USB is unmounted for independent Mac checking; that check and DOS
+compatibility remain pending.
+
+[Hardware evidence and screenshot](https://github.com/l00nix/picomem-elks/blob/codex/file-service-errors/docs/FILE-SERVICE-ERRORS.md#ppc512-results--october-29-2026).

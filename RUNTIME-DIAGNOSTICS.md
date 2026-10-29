@@ -103,5 +103,6 @@ The full flash recovery backup and diagnostic firmware both passed readback
 verification before the hardware test. This is not a release candidate.
 
 The next [file-service error candidate](FILE-SERVICE-ERRORS.md) checks close and
-metadata failures and propagates USB transfer errors. Its host tests pass;
-PPC512 validation is pending.
+metadata failures and propagates USB transfer errors. Its host tests, 18 PPC512
+workload batches and eight file checks after remount passed. Direct Mac FAT and
+DOS checks remain pending.
