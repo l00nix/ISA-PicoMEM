@@ -56,5 +56,32 @@ int main(void)
   assert(get_itf(1)->stage==MSC_STAGE_STATUS);
   assert(msch_xfer_cb(1,0x81,XFER_RESULT_SUCCESS,13)&&completed==1&&status==0);tests++;
  }
+ /* Only bounded REQUEST SENSE accepts short DATA, and only matching residue
+  * can turn it into a successful completion. Exercise every length/residue. */
+ for(unsigned received=0;received<=19;received++)for(unsigned residue=0;residue<=19;residue++){
+  setup(MSC_STAGE_CMD);msc_cbw_t*c=&get_epbuf(1)->cbw;
+  c->total_bytes=18;c->cmd_len=6;c->command[0]=3;c->command[4]=18;
+  assert(msch_xfer_cb(1,2,XFER_RESULT_SUCCESS,31));
+  bool accepted=msch_xfer_cb(1,0x81,XFER_RESULT_SUCCESS,received);
+  if(received>18){assert(!accepted&&completed==1&&status==2);}
+  else{
+   assert(accepted&&!completed&&get_itf(1)->pm_data_bytes==received);
+   get_epbuf(1)->csw.data_residue=residue;
+   bool ok=msch_xfer_cb(1,0x81,XFER_RESULT_SUCCESS,13);
+   assert(ok==(residue<=18&&received==18-residue));
+   assert(completed==1&&status==(ok?0:2));
+  }tests++;
+ }
+ for(unsigned variant=0;variant<5;variant++){
+  setup(MSC_STAGE_DATA);msc_cbw_t*c=&get_epbuf(1)->cbw;
+  c->total_bytes=18;c->cmd_len=6;c->command[0]=3;c->command[4]=18;
+  if(variant==0)c->command[0]=0x28;
+  if(variant==1)c->cmd_len=10;
+  if(variant==2)c->dir=0;
+  if(variant==3)c->total_bytes=19;
+  if(variant==4)c->command[4]=19;
+  assert(!msch_xfer_cb(1,variant==2?2:0x81,XFER_RESULT_SUCCESS,8));
+  assert(completed==1&&status==2);tests++;
+ }
  printf("PASS actual TinyUSB MSC: %u completion/length/status cases\n",tests);return 0;
 }

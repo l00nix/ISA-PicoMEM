@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-29",
+  "status": "Host tested and built; hardware test pending; USB writes remain blocked after flush failure",
+  "branch": "codex/usb-sync-lifetime",
+  "firmware_base_commit": "cbbc136640a789b3e5c56dd8db99952f5afc2cdf",
+  "candidate_artifacts_sha256": {
+    "picomem.bin": "aedf4ccaa383b842181756bc89eb2dddc54d97b0c454110d3723e3464236d1c8",
+    "picomem.elf": "5f39e706c3d75f9da4d247aab2fb00b21645e2025cbee2bb3cccde5fafc07519",
+    "picomem.elf.map": "82437b3d6abe97804b088e08da6734b2fa1387e4b5031bf0da84b72801457bb7",
+    "picomem.uf2": "1cc672b64cc64c1670f8a5c7a76884fd96e53f417eb3bb6fe45694ea9a5afb10"
+  },
+  "source_sha256": {
+    "src/USB_Host_Driver/msc/usb-checked.c": "13625773072ec924ed42e75385e6561521b8ce772ab6b0fc5f1905603a1338dc",
+    "src/USB_Host_Driver/msc/fatfs_usb.c": "747582972e1cd9f28a0cb9f35e929a42fb87f8dffe1e94fbc9225f4dde112a24",
+    "src/lib/tinyusb/src/class/msc/msc_host.c": "7cdc9c8cae377c944a1a51634e634a5f979968679bc2e43a0be4384967e77859",
+    "src/CMakeLists.txt": "397df47e7594e80720fba7643a16c80b1dd40f2aa7aa1db148fe14bb0d339fe6",
+    "tools/patches/tinyusb-0.19-checked-msc.patch": "5e9561c5b574d16fb3144d80d25999c5feebf9cde9ef5d470dab4337b5c0274e",
+    "tools/prepare-lfn-deps.py": "a385a31ef9edf3374021d7e642d09ed9c3dda1ae0045a6f2be04993a5039eb8d",
+    "tools/tests/usb-sync/msc-test.c": "b38488c58dc9437aaeadb158c5b83f8a684b3ed991fbe1468d3d1af479ecefc2",
+    "tools/tests/usb-sync/adapter-test.c": "e872a875e3e006fe9a49af79ed0e4723eb5935d419f8e97f0499cee1b5f77991",
+    "tools/tests/usb-sync/fatfs-test.c": "c0643e31e8b765af4c6109db04506aa9ff2eba308c0cb57b0440f693731317f7",
+    "tools/tests/usb-sync/test.py": "7a79de7d1e90378da28d0274675393175a971d7d4a13fe96d6526e49f1d5deed"
+  },
+  "installed_firmware_sha256": "015f79bb11dc0ea7ca20131a0e8236d41ae78807e2bb0c8e780dfb0e8c2f0f9b",
+  "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+  "new_kernel_required": false,
+  "changes": "One owned, bounded REQUEST SENSE after a validated status1 zero-residue initial clean flush failure; preserve failure and quarantine; no write retry or cache policy bypass",
+  "tests": {
+    "actual_tinyusb_cases": 983,
+    "adapter_scenarios": 89,
+    "fatfs_mount_fat32_scenarios": 5,
+    "legacy_usb_cases": 14,
+    "asan_ubsan": "passed",
+    "arm_build": "passed",
+    "core0_stack_reserved": 4096,
+    "core1_stack_reserved": 2048,
+    "option_off_uf2_unchanged": true,
+    "hardware": "pending"
+  },
+  "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
+  "memory": {
+    "flash_bytes": 4805808,
+    "ram_bytes": 380780,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "upstream_pr_changed": false
+}

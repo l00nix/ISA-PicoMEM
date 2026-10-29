@@ -1,8 +1,28 @@
 diff --git a/src/class/msc/msc_host.c b/src/class/msc/msc_host.c
-index eb69ae400..e9d34053e 100644
+index eb69ae400..ae1f7ca93 100644
 --- a/src/class/msc/msc_host.c
 +++ b/src/class/msc/msc_host.c
-@@ -321,12 +321,52 @@ void msch_close(uint8_t dev_addr) {
+@@ -61,6 +61,9 @@ typedef struct {
+ 
+   // SCSI command data
+   uint8_t stage;
++#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
++  uint32_t pm_data_bytes; /* Actual DATA length for the bounded sense query. */
++#endif
+   void* buffer;
+   tuh_msc_complete_cb_t complete_cb;
+   uintptr_t complete_arg;
+@@ -150,6 +153,9 @@ bool tuh_msc_scsi_command(uint8_t daddr, msc_cbw_t const* cbw, void* data,
+   p_msc->complete_cb = complete_cb;
+   p_msc->complete_arg = arg;
+   p_msc->stage = MSC_STAGE_CMD;
++#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
++  p_msc->pm_data_bytes = 0;
++#endif
+ 
+   if (!usbh_edpt_xfer(daddr, p_msc->ep_out, (uint8_t*) &epbuf->cbw, sizeof(msc_cbw_t))) {
+     usbh_edpt_release(daddr, p_msc->ep_out);
+@@ -321,12 +327,58 @@ void msch_close(uint8_t dev_addr) {
    tu_memclr(p_msc, sizeof(msch_interface_t));
  }
  
@@ -37,19 +57,25 @@ index eb69ae400..e9d34053e 100644
    msc_csw_t       * csw = &epbuf->csw;
  
 +#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
++  bool const pm_sense = cbw->command[0] == 0x03 && cbw->cmd_len == 6 &&
++                        cbw->dir == TUSB_DIR_IN_MASK && cbw->total_bytes == 18 &&
++                        cbw->command[4] == 18;
 +  if (p_msc->stage == MSC_STAGE_IDLE) return false; /* Late duplicate event. */
 +  if (event != XFER_RESULT_SUCCESS ||
 +      (p_msc->stage == MSC_STAGE_CMD &&
 +       (ep_addr != p_msc->ep_out || xferred_bytes != sizeof(msc_cbw_t))) ||
 +      (p_msc->stage == MSC_STAGE_DATA &&
 +       (ep_addr != ((cbw->dir & TUSB_DIR_IN_MASK) ? p_msc->ep_in : p_msc->ep_out) ||
-+        xferred_bytes != cbw->total_bytes)) ||
++        (pm_sense ? xferred_bytes > cbw->total_bytes : xferred_bytes != cbw->total_bytes))) ||
 +      (p_msc->stage == MSC_STAGE_STATUS &&
 +       (ep_addr != p_msc->ep_in || xferred_bytes != sizeof(msc_csw_t) ||
 +        csw->signature != MSC_CSW_SIGNATURE || csw->tag != cbw->tag ||
-+        csw->data_residue > cbw->total_bytes || csw->status > 2))) {
++        csw->data_residue > cbw->total_bytes || csw->status > 2 ||
++        (pm_sense && csw->status == 0 &&
++         p_msc->pm_data_bytes != cbw->total_bytes - csw->data_residue)))) {
 +    return pm_msch_failed(dev_addr);
 +  }
++  if (p_msc->stage == MSC_STAGE_DATA) p_msc->pm_data_bytes = xferred_bytes;
 +#endif
 +
    switch (p_msc->stage) {

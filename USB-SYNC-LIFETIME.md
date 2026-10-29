@@ -25,8 +25,9 @@ The pinned TinyUSB patch checks transfer results, endpoint direction, exact byte
 counts, CSW signature/tag, residue bounds and status range before reporting a
 completion. The adapter additionally requires zero residue, successful status,
 the current request, callback identity and the expected data buffer. Its command
-tags are unique across clean reconnects and cannot wrap. Short replies are rejected;
-this strict fixed-size policy needs testing against each supported drive.
+tags are unique across clean reconnects and cannot wrap. Sector replies must be
+full length. The REQUEST SENSE follow-up below permits a bounded short sense reply
+only when its actual transfer length agrees with the CSW residue.
 
 `CTRL_SYNC` now sends SCSI SYNCHRONIZE CACHE(10), with IMMED=0, SYNC_NV=0 and zero
 LBA/block count. The intent is to wait for the device to synchronize the whole
@@ -173,37 +174,78 @@ the stack peak during failure reporting was not measured.
 
 [Native screenshot and full evidence](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#diagnostic-ppc512-result).
 
-The next proposed diagnostic is one bounded read-only REQUEST SENSE after a
-fully validated command-failed completion, preserving the original failure and
-keeping writes blocked. It must not run after a timeout or ambiguous transport
-completion; its request/data storage must also survive late completion. Parsing
-must distinguish fixed/descriptor sense formats and validate actual lengths.
-Sense data can distinguish invalid opcode, invalid command fields and other
-conditions. Missing or unsupported sense/cache queries must not be treated as
-proof that the drive has no volatile write cache. No fallback that reports a
-failed flush as success is justified by this result.
+The next diagnostic is now implemented and host tested, as described below.
+It has not yet been flashed or tested on the Kingston. Sense data can distinguish
+invalid opcode, invalid command fields and other conditions. Missing or unsupported
+sense/cache queries must not be treated as proof that the drive has no volatile
+write cache. No fallback that reports a failed flush as success is justified by
+this result.
 
 The [USB BOT status definitions](https://www.usb.org/sites/default/files/usbmassbulk_10.pdf)
 identify status 1 as command failure. The [T10 sense-code list](https://www.t10.org/lists/asc-num.txt)
 distinguishes invalid opcode (20/00) from invalid command fields (24/00); neither
 code has yet been observed on this Kingston.
 
+## REQUEST SENSE follow-up — built, hardware pending
+
+I added one read-only REQUEST SENSE(6), allocation length 18, DESC=0, LUN=0,
+after the initial clean SYNCHRONIZE CACHE failure. Eligibility requires a fully
+validated status-1 completion with zero residue, no dirty sectors and no previous
+successful flush on this attachment. Failed READ/WRITE, established or dirty flush,
+timeout, phase error, malformed reply and rejected submission never trigger it.
+The query runs after the original completion callback returns, has its own
+persistent request and aligned data buffer, a unique nonwrapping tag and a
+two-second deadline. There is no retry, reset or continuation of the failed write.
+The original fault remains latched even if the sense query succeeds.
+
+The pinned TinyUSB patch permits 0–18 actual DATA bytes only for an 18-byte
+REQUEST SENSE(6) IN request. A successful CSW must report residue equal to 18 minus
+the received length. All other commands retain exact DATA-length checks. The
+adapter checks callback/request/buffer/device identity and CSW signature/tag/status
+before parsing. Fixed formats 70/71 require at least 14 received bytes and an
+advertised length that includes ASC/ASCQ; descriptor formats 72/73 require the
+complete eight-byte header. Only those header fields are decoded. Trailing sense
+descriptors are neither requested in full nor interpreted.
+
+`pmstat --usb` retains the original fault fields and appends
+`rs=FORMAT:KEY/ASC/ASCQ n=BYTES` (hex codes, decimal byte count). For example,
+`rs=70:5/20/00 n=18` would mean current fixed-format illegal-request / invalid
+opcode. **This is a host-test example, not an observed Kingston result.** Formats
+71/73 identify deferred errors and must not be described as current-command errors.
+If trustworthy header fields are unavailable, the suffix is `rs=short`, `format`,
+`reply`, `status`, `submit`, `timeout`, `detach` or `skip`; it does not invent sense
+codes. Late callbacks, reconnects and later I/O cannot overwrite the final report.
+
+Validation passes 983 actual TinyUSB length/status cases, 89 adapter scenarios
+under ASan/UBSan, five real FatFs/FAT32 scenarios and 14 legacy USB cases. These
+cover fixed/descriptor and deferred responses, invalid-field/unit-attention codes,
+short headers, advertised length, malformed replies, failed sense, submission
+rejection, timeout, disconnect, tag exhaustion and late completion after caller
+free. The unsupported-flush FAT32 case still submits zero writes. Both ARM builds
+pass; the option-OFF UF2 is byte-identical to the preceding option-OFF artifact.
+The candidate uses 4,805,808 FLASH bytes and 380,780 RAM bytes. Core 0 retains 4096
+stack bytes and core 1 retains 2048, with no scratch overlap. Fault-path runtime
+stack use remains unmeasured. [Candidate hashes and tests](USB-REQUEST-SENSE.json).
+
 ## Hardware validation still required
 
-The PPC is running ELKS with USB unmounted after the diagnostic test. Another
-write test requires a reviewed follow-up; do not repeat writes on the faulted
-session. No REQUEST SENSE follow-up firmware has been implemented or staged yet. After physical readiness is confirmed, save and readback-verify a
-fresh full 16 MiB PicoMEM flash backup before flashing this candidate. Verify the
-candidate's readback too. No kernel change is planned.
+The PPC remains on the preceding diagnostic firmware with USB unmounted and its
+fault latched. After physical readiness is confirmed, I will save and readback-verify
+a fresh full 16 MiB flash backup, then flash and readback-verify this candidate.
+No ELKS kernel change is required.
 
-Start with detection and read-only checks, then one fresh bounded write to test
-Kingston flush support. On any I/O/flush failure, stop; do not retry or unplug a
-mounted device. Preserve the logs and use the verified recovery image if needed.
-On success, run the 18 workload batches in a fresh `PMSYD29` directory (do not reuse the uncertain `PMSYNC29` attempt), measure
-timing and observed stack use, compare all retained file bytes before/after clean
-remount, perform the independent Mac filename/content and read-only FAT checks,
-and test the ELKS return trip plus DOS 8.3 compatibility. SD stays unmounted.
-There will be no real-media timeout, disconnect or power-loss fault injection.
+After normal startup, I will check USB detection and all eight retained files
+through a read-only mount. The diagnostic trigger will be one fresh bounded
+`mkdir` in `PMSEN29`, after a clean unmount and explicit read/write mount. On failure,
+I will capture the native error and cached USB status, unmount and stop. I will not
+reuse `PMSYNC29` or `PMSYD29`, retry writes on a faulted session, or unplug a mounted
+device. SD stays unmounted; no real-media fault injection is planned.
+
+A confirmed unsupported opcode still needs a justified cache policy before any
+fallback. The broader 18-batch workload, Mac filename/content/FAT check, return
+trip, DOS compatibility, timing and stack checks remain gated on resolving this
+failure. This diagnostic alone does not make the firmware a read/write release
+candidate.
 
 Automatic controller cancellation/reset recovery is still open. In the pinned
 RP2040/RP2350 host driver, `hcd_edpt_abort_xfer` is unimplemented and returns false.

@@ -15,10 +15,12 @@ with tempfile.TemporaryDirectory(prefix='pm-usb-sync-') as d:
     run(tmp/'msc')
     count=0
     for op in ('read','write','sync'):
-        for mode in ('guards','normal','reentrant','scsi','phase','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','disconnect','reject','tagwrap','notready'):
+        for mode in ('guards','normal','reentrant','scsi','phase','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','disconnect','reject','tagwrap','notready','bad_failed_residue'):
             run(tmp/'adapter',op,mode);count+=1
-    for op,mode in [('write','dirty_detach'),('write','syncfail'),('sync','syncfail'),('write','write_timeout'),('write','dirty_syncfail')]:
+    for op,mode in [('write','established_flush'),('write','dirty_detach'),('write','syncfail'),('sync','syncfail'),('write','write_timeout'),('write','dirty_syncfail')]:
         run(tmp/'adapter',op,mode);count+=1
+    for mode in ('fixed','field','unit','deferred','validbit','descriptor','desc_deferred','short','short_header','advertised','format','status','phase','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','detach','reject','skip_ready','skip_tag'):
+        run(tmp/'adapter','write','sense_'+mode);count+=1
     print(f'PASS {count} adapter scenarios with ASan/UBSan')
     fat=root/'src/lib/FatFs_SPI/ff15/source'
     run(cc,*flags,'-DPICOMEM_EXPERIMENTAL_LFN=1',kit/'fatfs-test.c',fat/'ff.c',fat/'ffunicode.c','-o',tmp/'fatfs')

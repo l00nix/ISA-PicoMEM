@@ -95,7 +95,7 @@ option(PICOMEM_EXPERIMENTAL_USB_SYNC "Experimental USB cache flush and owned tra
 option(PICOMEM_EXPERIMENTAL_FILE_ERRORS "Experimental DFS and USB file-service error reporting" OFF)
 if(PICOMEM_EXPERIMENTAL_USB_SYNC)
     file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/lib/tinyusb/src/class/msc/msc_host.c" PM_MSC_SHA256)
-    if(NOT PM_MSC_SHA256 STREQUAL "7d597911c42fc0b6616bde1f79a2242d4737d8605d7752eda4dfd66b39f446ca")
+    if(NOT PM_MSC_SHA256 STREQUAL "7cdc9c8cae377c944a1a51634e634a5f979968679bc2e43a0be4384967e77859")
         message(FATAL_ERROR "USB sync requires the pinned checked MSC source; run tools/prepare-lfn-deps.py")
     endif()
 endif()

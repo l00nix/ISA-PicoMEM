@@ -22,6 +22,14 @@ static uint8_t device;
 static bool active, failed, dirty, sync_supported;
 static bool waiting;
 static uint8_t fault_opcode;
+/* A single diagnostic after a completed, clean pre-write flush failure. These
+ * objects have separate lifetimes; neither can be reused after quarantine. */
+#define SENSE_BYTES 18u
+static uint8_t sense_data[SENSE_BYTES] __attribute__((aligned(4)));
+static msc_cbw_t sense_request;
+static bool sense_pending, sense_waiting;
+static uint8_t sense_device, sense_length;
+static const char *sense_result;
 /* First fault only, visible through the existing cached CMD_USB_Status query.
  * Formatting does not submit USB work or clear quarantine. */
 enum fault_kind { FAULT_REPLY=1, FAULT_STATUS, FAULT_RESIDUE, FAULT_STATE,
@@ -61,6 +69,86 @@ void pm_usb_detach(uint8_t dev)
     /* Do not release or repurpose transfer_data, request, or tag while failed. */
 }
 
+static bool sense_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
+{
+    if (!sense_waiting) return true; /* Late completion cannot change the report. */
+    sense_result = "reply";
+    if (dev == sense_device && device == sense_device && present() && reply &&
+        reply->cbw && reply->csw && reply->user_arg == sense_request.tag &&
+        !memcmp(reply->cbw, &sense_request, sizeof(sense_request)) &&
+        reply->scsi_data == sense_data &&
+        reply->csw->signature == MSC_CSW_SIGNATURE &&
+        reply->csw->tag == sense_request.tag &&
+        reply->csw->data_residue <= SENSE_BYTES) {
+        sense_result = "status";
+        if (reply->csw->status == 0) {
+            /* The pinned transport checks actual DATA bytes against residue. */
+            sense_length = SENSE_BYTES - reply->csw->data_residue;
+            sense_result = "ok";
+        }
+    }
+    sense_waiting = false;
+    return true;
+}
+
+static void collect_sense(void)
+{
+    uint32_t deadline;
+    uint8_t format, key, asc, ascq;
+    sense_pending = false; /* Exactly one attempt; never recursive or retried. */
+    sense_device = device;
+    sense_result = "skip";
+    if (!present() || !tuh_msc_ready(device) || tag == UINT32_MAX) goto report;
+    memset(&sense_request, 0, sizeof(sense_request));
+    memset(sense_data, 0, sizeof(sense_data));
+    sense_request.signature = MSC_CBW_SIGNATURE;
+    sense_request.tag = ++tag;
+    sense_request.total_bytes = SENSE_BYTES;
+    sense_request.dir = 0x80;
+    sense_request.cmd_len = 6;
+    sense_request.command[0] = 0x03; /* REQUEST SENSE, DESC=0, LUN=0. */
+    sense_request.command[4] = SENSE_BYTES;
+    sense_waiting = true;
+    deadline = time_us_32() + COMMAND_TIMEOUT_US;
+    if (!tuh_msc_scsi_command(device, &sense_request, sense_data,
+                             sense_complete, sense_request.tag)) {
+        sense_result = "submit";
+        goto report;
+    }
+    while (sense_waiting) {
+        tuh_task();
+        if (!sense_waiting) break;
+        if (!present()) { sense_result = "detach"; break; }
+        if ((int32_t)(time_us_32() - deadline) >= 0) {
+            sense_result = "timeout";
+            break;
+        }
+    }
+    if (strcmp(sense_result, "ok")) goto report;
+    sense_result = "short";
+    if (sense_length < 8) goto report;
+    format = sense_data[0] & 0x7f;
+    if (format == 0x70 || format == 0x71) {
+        /* Both received and advertised length must include ASC/ASCQ. Only
+         * this header is decoded; any trailing sense descriptors are ignored. */
+        if (sense_length < 14 || sense_data[7] < 6) goto report;
+        key = sense_data[2] & 15; asc = sense_data[12]; ascq = sense_data[13];
+    } else if (format == 0x72 || format == 0x73) {
+        key = sense_data[1] & 15; asc = sense_data[2]; ascq = sense_data[3];
+    } else { sense_result = "format"; goto report; }
+    sense_waiting = false;
+    usb_set_status(sense_device,
+        "?USB fault op=35 f=2 s=1 r=0 d=0 rs=%02x:%x/%02x/%02x n=%u",
+        (unsigned)format, (unsigned)key, (unsigned)asc, (unsigned)ascq,
+        (unsigned)sense_length);
+    return;
+report:
+    sense_waiting = false;
+    if (sense_device && sense_device <= CFG_TUH_DEVICE_MAX)
+        usb_set_status(sense_device,
+            "?USB fault op=35 f=2 s=1 r=0 d=0 rs=%s", sense_result);
+}
+
 static bool complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
 {
     if (failed) return true; /* Late success cannot undo quarantine. */
@@ -70,8 +158,14 @@ static bool complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
         reply->scsi_data != (request.total_bytes ? transfer_data : NULL) ||
         reply->csw->signature != MSC_CSW_SIGNATURE || reply->csw->tag != tag)
         fault(FAULT_REPLY, 255, 0);
-    else if (reply->csw->status != 0)
+    else if (reply->csw->status != 0) {
+        /* Only a completed no-data flush, before any writes, permits follow-up.
+         * Failed READ/WRITE, dirty flush, phase errors and malformed transport
+         * never submit another command. Keep the original fault latched. */
+        sense_pending = request.command[0] == 0x35 && !dirty && !sync_supported &&
+                        reply->csw->status == 1 && reply->csw->data_residue == 0;
         fault(FAULT_STATUS, reply->csw->status, reply->csw->data_residue);
+    }
     else if (reply->csw->data_residue != 0)
         fault(FAULT_RESIDUE, 0, reply->csw->data_residue);
     waiting = false;
@@ -116,6 +210,7 @@ static DRESULT command(uint8_t opcode, uint32_t sector)
         if (!present()) fault(FAULT_DETACH, 255, 0);
         else if ((int32_t)(time_us_32() - deadline) >= 0) fault(FAULT_TIMEOUT, 255, 0);
     }
+    if (sense_pending) collect_sense();
     return failed ? RES_ERROR : RES_OK;
 }
 
