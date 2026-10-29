@@ -254,7 +254,7 @@ running with the adapter fault latched until PicoMEM restarts.
 
 The [current cache-mode diagnostic](USB-CACHE-MODE.md#ppc512-hardware-result--october-29-2026)
 hit a phase/transport failure on MODE SENSE(6); MODE SENSE(10) was skipped and the
-cache state remains unknown. Transport details are needed before compatibility changes. Unsupported flush alone does not prove
+cache state remains unknown. The [transport-detail follow-up](USB-TRANSPORT-DETAIL.md) is built and host-tested, with its physical test pending. Transport details are needed before compatibility changes. Unsupported flush alone does not prove
 that writes bypass volatile cache, and an unsupported/missing cache-mode page must
 remain unknown. No fallback or cache-setting change is implemented by this result.
 The broader workload, Mac filename/content/FAT check, return trip, DOS compatibility,

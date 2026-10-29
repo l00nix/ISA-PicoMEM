@@ -11,6 +11,7 @@
 #include "usb-checked.h"
 #include "../usb.h"
 #include <string.h>
+#include <stdio.h>
 #include "pico/time.h"
 
 #define SECTOR_BYTES 512u
@@ -78,6 +79,51 @@ static const char *cache_result[2] = {"-", "-"};
 static unsigned cache_index, cache_length;
 static bool cache_waiting, cache_completed;
 
+/* Permanent cached text: independent of TinyUSB device close/late callbacks.
+ * Three <=79-byte lines fit CMD_USB_Status's existing eight-line/1024B client.
+ */
+static char transport_lines[3][80];
+static void cache_transport_fault(uint8_t dev, uint32_t request_tag)
+{
+    tuh_msc_checked_fault_t f;
+    if (transport_lines[0][0] || !tuh_msc_get_checked_fault(dev, request_tag, &f)) return;
+    snprintf(transport_lines[0], sizeof(transport_lines[0]),
+        "USB fault op=%02x tag=%lu why=%u stage=%u event=%u",
+        (unsigned)f.opcode, (unsigned long)f.tag, (unsigned)f.reason,
+        (unsigned)f.stage, (unsigned)f.event);
+    snprintf(transport_lines[1], sizeof(transport_lines[1]),
+        "USB xfer ep=%02x/%02x got=%lu want=%lu data=%lu",
+        (unsigned)f.endpoint, (unsigned)f.expected_endpoint,
+        (unsigned long)f.actual, (unsigned long)f.expected, (unsigned long)f.data_bytes);
+    snprintf(transport_lines[2], sizeof(transport_lines[2]),
+        "USB CSW checks=%02x status=%u residue=%lu",
+        (unsigned)f.checks, (unsigned)f.csw_status, (unsigned long)f.residue);
+}
+
+void pm_usb_append_transport_status(char *buffer, size_t capacity)
+{
+    /* Validate the existing count and NUL boundaries before any mutation.
+     * Append all three or none, never truncate or exceed the client limits. */
+    if (!buffer || !capacity || !transport_lines[0][0]) return;
+    unsigned count = (unsigned char)buffer[0];
+    if (count > 5) return;
+    size_t end = 1, needed = 0;
+    for (unsigned i = 0; i < count; ++i) {
+        if (end >= capacity) return;
+        const char *nul = memchr(buffer + end, 0, capacity - end);
+        if (!nul) return;
+        end = (size_t)(nul - buffer) + 1;
+    }
+    for (unsigned i = 0; i < 3; ++i) needed += strlen(transport_lines[i]) + 1;
+    if (needed > capacity - end) return;
+    for (unsigned i = 0; i < 3; ++i) {
+        size_t length = strlen(transport_lines[i]) + 1;
+        memcpy(buffer + end, transport_lines[i], length);
+        end += length;
+    }
+    buffer[0] = (char)(count + 3);
+}
+
 static bool cache_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
 {
     const msc_cbw_t *q = &cache_request[cache_index];
@@ -95,7 +141,10 @@ static bool cache_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
             cache_completed = true;
             cache_length = CACHE_BYTES - reply->csw->data_residue;
             cache_result[cache_index] = reply->csw->status ? "s1" : "ok";
-        } else cache_result[cache_index] = "phase";
+        } else {
+            cache_result[cache_index] = "phase";
+            cache_transport_fault(dev, q->tag);
+        }
     }
     cache_waiting = false;
     return true;

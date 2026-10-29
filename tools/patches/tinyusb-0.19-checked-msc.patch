@@ -1,28 +1,30 @@
 diff --git a/src/class/msc/msc_host.c b/src/class/msc/msc_host.c
-index eb69ae400..4bb48733d 100644
+index eb69ae400..48c813ab3 100644
 --- a/src/class/msc/msc_host.c
 +++ b/src/class/msc/msc_host.c
-@@ -61,6 +61,9 @@ typedef struct {
+@@ -61,6 +61,10 @@ typedef struct {
  
    // SCSI command data
    uint8_t stage;
 +#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
 +  uint32_t pm_data_bytes; /* Actual DATA length for bounded diagnostic queries. */
++  tuh_msc_checked_fault_t pm_fault;
 +#endif
    void* buffer;
    tuh_msc_complete_cb_t complete_cb;
    uintptr_t complete_arg;
-@@ -150,6 +153,9 @@ bool tuh_msc_scsi_command(uint8_t daddr, msc_cbw_t const* cbw, void* data,
+@@ -150,6 +154,10 @@ bool tuh_msc_scsi_command(uint8_t daddr, msc_cbw_t const* cbw, void* data,
    p_msc->complete_cb = complete_cb;
    p_msc->complete_arg = arg;
    p_msc->stage = MSC_STAGE_CMD;
 +#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
 +  p_msc->pm_data_bytes = 0;
++  tu_memclr(&p_msc->pm_fault, sizeof(p_msc->pm_fault));
 +#endif
  
    if (!usbh_edpt_xfer(daddr, p_msc->ep_out, (uint8_t*) &epbuf->cbw, sizeof(msc_cbw_t))) {
      usbh_edpt_release(daddr, p_msc->ep_out);
-@@ -321,12 +327,65 @@ void msch_close(uint8_t dev_addr) {
+@@ -321,12 +329,123 @@ void msch_close(uint8_t dev_addr) {
    tu_memclr(p_msc, sizeof(msch_interface_t));
  }
  
@@ -30,6 +32,61 @@ index eb69ae400..4bb48733d 100644
 +/* Fail the application command instead of accepting stale/partial CSW bytes.
 + * No automatic reset or retry: the PicoMEM adapter quarantines its owned buffer.
 + */
++bool tuh_msc_get_checked_fault(uint8_t dev_addr, uint32_t tag,
++                               tuh_msc_checked_fault_t *out) {
++  if (!dev_addr || dev_addr > CFG_TUH_DEVICE_MAX || !out) return false;
++  tuh_msc_checked_fault_t const *f = &get_itf(dev_addr)->pm_fault;
++  if (!f->reason || f->tag != tag) return false;
++  *out = *f;
++  return true;
++}
++
++/* Called before synthetic CSW replacement; never interpret partial/stale CSW.
++ * Classification mirrors the checks below without changing their acceptance.
++ */
++static void pm_msch_record(uint8_t dev_addr, uint8_t ep, xfer_result_t event,
++                           uint32_t actual) {
++  msch_interface_t *itf = get_itf(dev_addr);
++  msch_epbuf_t *b = get_epbuf(dev_addr);
++  tuh_msc_checked_fault_t *f = &itf->pm_fault;
++  if (f->reason) return;
++  f->tag = b->cbw.tag;
++  f->opcode = b->cbw.command[0];
++  f->stage = itf->stage;
++  f->event = event;
++  f->endpoint = ep;
++  f->expected_endpoint = itf->stage == MSC_STAGE_CMD ? itf->ep_out :
++    itf->stage == MSC_STAGE_DATA && !(b->cbw.dir & TUSB_DIR_IN_MASK) ? itf->ep_out : itf->ep_in;
++  f->actual = actual;
++  f->expected = itf->stage == MSC_STAGE_CMD ? sizeof(msc_cbw_t) :
++    itf->stage == MSC_STAGE_DATA ? b->cbw.total_bytes : sizeof(msc_csw_t);
++  f->data_bytes = itf->stage == MSC_STAGE_DATA ? actual : itf->pm_data_bytes;
++  f->csw_status = 255;
++  f->residue = UINT32_MAX;
++  if (itf->stage == MSC_STAGE_STATUS && event == XFER_RESULT_SUCCESS &&
++      ep == itf->ep_in && actual == sizeof(msc_csw_t)) {
++    f->csw_status = b->csw.status;
++    f->residue = b->csw.data_residue;
++    f->checks = 1;
++    if (b->csw.signature == MSC_CSW_SIGNATURE) f->checks |= 2;
++    if (b->csw.tag == b->cbw.tag) f->checks |= 4;
++    if (b->csw.data_residue <= b->cbw.total_bytes) {
++      f->checks |= 8;
++      if (itf->pm_data_bytes == b->cbw.total_bytes - b->csw.data_residue) f->checks |= 32;
++    }
++    if (b->csw.status <= 2) f->checks |= 16;
++  }
++  if (event != XFER_RESULT_SUCCESS) f->reason = 1;
++  else if (ep != f->expected_endpoint) f->reason = 2;
++  else if (!(f->checks & 1)) f->reason = 3;
++  else if (!(f->checks & 2)) f->reason = 4;
++  else if (!(f->checks & 4)) f->reason = 5;
++  else if (!(f->checks & 8)) f->reason = 6;
++  else if (!(f->checks & 16)) f->reason = 7;
++  else if (b->csw.status == 2) f->reason = 9;
++  else f->reason = 8;
++}
++
 +static bool pm_msch_failed(uint8_t dev_addr) {
 +  msch_interface_t* itf = get_itf(dev_addr);
 +  msch_epbuf_t* epbuf = get_epbuf(dev_addr);
@@ -80,11 +137,42 @@ index eb69ae400..4bb48733d 100644
 +        csw->data_residue > cbw->total_bytes || csw->status > 2 ||
 +        (((pm_sense && csw->status == 0) || (pm_cache && csw->status <= 1)) &&
 +         p_msc->pm_data_bytes != cbw->total_bytes - csw->data_residue)))) {
++    pm_msch_record(dev_addr, ep_addr, event, xferred_bytes);
 +    return pm_msch_failed(dev_addr);
 +  }
 +  if (p_msc->stage == MSC_STAGE_DATA) p_msc->pm_data_bytes = xferred_bytes;
++  if (p_msc->stage == MSC_STAGE_STATUS && csw->status == 2)
++    pm_msch_record(dev_addr, ep_addr, event, xferred_bytes);
 +#endif
 +
    switch (p_msc->stage) {
      case MSC_STAGE_CMD:
        // Must be Command Block
+diff --git a/src/class/msc/msc_host.h b/src/class/msc/msc_host.h
+index b5fd55547..c107899bd 100644
+--- a/src/class/msc/msc_host.h
++++ b/src/class/msc/msc_host.h
+@@ -48,6 +48,23 @@ typedef struct {
+   uintptr_t user_arg;   // user argument
+ }tuh_msc_complete_data_t;
+ 
++#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
++/* Diagnostic snapshot only. Reasons: 1 event, 2 endpoint, 3 length, 4 CSW
++ * signature, 5 tag, 6 residue, 7 status, 8 DATA/residue, 9 device phase error.
++ * Stage uses MSC_STAGE_* (CMD=1, DATA=2, STATUS=3). Unknown CSW: status=255,
++ * residue=UINT32_MAX. checks bits: present, signature, tag, residue, status,
++ * DATA/residue agreement. A present CSW requires a complete successful IN.
++ */
++typedef struct {
++  uint32_t tag, actual, expected, data_bytes, residue;
++  uint8_t stage, event, endpoint, expected_endpoint;
++  uint8_t reason, csw_status, checks, opcode;
++} tuh_msc_checked_fault_t;
++/* No USB work; core-0 only. Valid until the next command or device close. */
++bool tuh_msc_get_checked_fault(uint8_t dev_addr, uint32_t tag,
++                               tuh_msc_checked_fault_t *out);
++#endif
++
+ typedef bool (*tuh_msc_complete_cb_t)(uint8_t dev_addr, tuh_msc_complete_data_t const* cb_data);
+ 
+ //--------------------------------------------------------------------+

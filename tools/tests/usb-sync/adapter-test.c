@@ -22,6 +22,7 @@ static unsigned submissions,reads,writes,flushes,pumps,senses,caches[2];
 static void *owned;
 static const void *caller;
 static msc_cbw_t bus;
+static bool snapshot_max, snapshot_missing;
 static tuh_msc_complete_cb_t callback;
 static uintptr_t argument;
 static unsigned char disk[1024];
@@ -33,6 +34,43 @@ static const char *cache_case(unsigned i)
 {
  if(!strncmp(mode,"cache10_",8))return i ? mode+8 : "status";
  return !strncmp(mode,"cache_",6) ? mode+6 : "off";
+}
+bool tuh_msc_get_checked_fault(uint8_t d,uint32_t t,tuh_msc_checked_fault_t *out)
+{
+ assert(d==1&&t==bus.tag&&out);
+ if(snapshot_missing)return false;
+ *out=(tuh_msc_checked_fault_t){.tag=t,.opcode=bus.command[0],.reason=1,
+   .stage=2,.event=2,.endpoint=0x81,.expected_endpoint=0x81,.actual=0,
+   .expected=64,.data_bytes=0,.residue=UINT32_MAX,.csw_status=255};
+ if(snapshot_max)memset(out,255,sizeof(*out));
+ return true;
+}
+/* Exercise actual status appender at every capacity, with malformed input and
+ * maximum-value formatting. It must append atomically and never submit USB. */
+static void test_transport_report(void)
+{
+ char saved[sizeof(transport_lines)];memcpy(saved,transport_lines,sizeof(saved));
+ char b[1026],original[1026];
+ unsigned before=submissions;
+ for(unsigned count=0;count<=8;count++)for(unsigned cap=0;cap<=1024;cap++){
+  memset(b,'Z',sizeof(b));b[0]=count;unsigned end=1;
+  for(unsigned i=0;i<count;i++){memcpy(b+end,"old",4);end+=4;}
+  memcpy(original,b,sizeof(b));pm_usb_append_transport_status(b,cap);
+  size_t need=0;for(unsigned i=0;i<3;i++)need+=strlen(transport_lines[i])+1;
+  bool append=cap>=end&&count<=5&&transport_lines[0][0]&&cap-end>=need;
+  if(!append)assert(!memcmp(b,original,sizeof(b)));
+  else{
+   assert((unsigned char)b[0]==count+3);
+   assert(!memcmp(b+1,original+1,end-1));
+   for(unsigned i=0;i<3;i++){assert(!strcmp(b+end,transport_lines[i]));end+=strlen(b+end)+1;}
+   assert(!memcmp(b+end,original+end,sizeof(b)-end));
+  }
+ }
+ memset(b,'X',sizeof(b));b[0]=1;memcpy(original,b,sizeof(b));
+ pm_usb_append_transport_status(b,1024);assert(!memcmp(b,original,sizeof(b)));
+ pm_usb_append_transport_status(NULL,1024);
+ for(unsigned i=0;i<3;i++)assert(strlen(transport_lines[i])<80);
+ assert(!memcmp(saved,transport_lines,sizeof(saved))&&submissions==before);
 }
 bool tuh_msc_scsi_command(uint8_t d,const msc_cbw_t*c,void*b,tuh_msc_complete_cb_t cb,uintptr_t u)
 {
@@ -178,7 +216,17 @@ void tuh_task_ext(uint32_t timeout_ms,bool in_isr)
 }
 int main(int argc,char**argv)
 {
- assert(argc==3);mode=argv[2];bool wr=!strcmp(argv[1],"write"),sync=!strcmp(argv[1],"sync");
+ assert(argc==3);mode=argv[2];
+ if(!strcmp(mode,"report")){
+  bus.tag=UINT32_MAX;test_transport_report();
+  snapshot_missing=true;cache_transport_fault(1,bus.tag);assert(!transport_lines[0][0]);
+  snapshot_missing=false;snapshot_max=true;cache_transport_fault(1,bus.tag);
+  assert(!strcmp(transport_lines[0],"USB fault op=ff tag=4294967295 why=255 stage=255 event=255"));
+  assert(!strcmp(transport_lines[1],"USB xfer ep=ff/ff got=4294967295 want=4294967295 data=4294967295"));
+  assert(!strcmp(transport_lines[2],"USB CSW checks=ff status=255 residue=4294967295"));
+  test_transport_report();assert(!submissions);puts("PASS bounded immutable diagnostic report; full field ranges");return 0;
+ }
+ bool wr=!strcmp(argv[1],"write"),sync=!strcmp(argv[1],"sync");
  unsigned char *buf=malloc(1024);assert(buf);caller=buf;
  memset(buf,0x5a,1024);for(unsigned i=0;i<1024;i++)disk[i]=(unsigned char)(i*13+7);
  assert(usb_disk_status()==(STA_NODISK|STA_NOINIT)&&usb_disk_read(buf,12,1)==RES_NOTRDY);
@@ -280,6 +328,13 @@ int main(int argc,char**argv)
   if(!strcmp(mode,"syncfail"))assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=0"));
   if(!strcmp(mode,"write_timeout"))assert(strstr(status_text,"op=2a f=6 s=255 r=0 d=1"));
   if(!strcmp(mode,"dirty_syncfail"))assert(strstr(status_text,"op=35 f=2 s=1 r=0 d=1"));
+  if (!strcmp(mode,"cache_phase") || !strcmp(mode,"cache10_phase")) {
+   assert(strstr(transport_lines[0],"why=1 stage=2 event=2"));
+   assert(!strcmp(transport_lines[1],"USB xfer ep=81/81 got=0 want=64 data=0"));
+   assert(!strcmp(transport_lines[2],"USB CSW checks=00 status=255 residue=4294967295"));
+  } else assert(!transport_lines[0][0]);
+  test_transport_report();
+  char first_transport[sizeof(transport_lines)];memcpy(first_transport,transport_lines,sizeof(first_transport));
   char first_fault[80];strcpy(first_fault,status_text);
   if(wr&&!strcmp(mode,"write_timeout"))assert(writes==1&&flushes==1&&owned);
   if(wr&&!strcmp(mode,"syncfail"))assert(writes==0&&flushes==1);
@@ -292,6 +347,7 @@ int main(int argc,char**argv)
   BYTE again[512];assert(usb_disk_read(again,12,1)==RES_ERROR);
   assert(usb_disk_write(again,12,1)==RES_ERROR&&usb_disk_ioctl(CTRL_SYNC,NULL)==RES_ERROR);
   assert(submissions==before&&failed&&reports==expected_reports&&!strcmp(first_fault,status_text));
+  assert(!memcmp(first_transport,transport_lines,sizeof(first_transport)));
  }
  printf("PASS owned USB buffer/cache sync: %s %s\n",argv[1],mode);return 0;
 }

@@ -13,7 +13,8 @@ with tempfile.TemporaryDirectory(prefix='pm-usb-sync-') as d:
     for name in ('msc','adapter'):
         run(cc,*flags,kit/(name+'-test.c'),gc,'-o',tmp/name)
     run(tmp/'msc')
-    count=0
+    run(tmp/'adapter','write','report')
+    count=1
     for op in ('read','write','sync'):
         for mode in ('guards','normal','reentrant','scsi','phase','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','disconnect','reject','tagwrap','notready','bad_failed_residue'):
             run(tmp/'adapter',op,mode);count+=1

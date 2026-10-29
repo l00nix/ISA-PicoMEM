@@ -168,6 +168,9 @@ extern wifi_infos_t PM_Wifi;
 #include "tusb.h"
 extern "C" {
 #include "usb.h"
+#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
+#include "msc/usb-checked.h"
+#endif
 }
 #endif
 
@@ -950,6 +953,10 @@ void PM_ExecCMD()
                PM_INFO("%s\n",str_tmp);
                str_tmp+=strlen(str_tmp)+1;   // Move pointer at the end of the current string
               }
+#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
+         static_assert(CFG_TUH_DEVICE_MAX <= 4, "USB diagnostics require at most four devices");
+         pm_usb_append_transport_status((char *)&PCCR_Param, 1024);
+#endif
         }
         else 
         {

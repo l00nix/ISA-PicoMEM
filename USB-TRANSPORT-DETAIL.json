@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-29",
+  "status": "Transport detail diagnostic built and host-tested; hardware pending; RW release blocked",
+  "branch": "codex/usb-sync-lifetime",
+  "firmware_base_commit": "53de95936c65e7e677faa454ce226e5fb2ca2dab",
+  "candidate_artifacts_sha256": {
+    "picomem.bin": "a72537b9d28165615afba3b4d708fbd051663c19f6a294900723e5873b3210d3",
+    "picomem.elf": "76cf785c61116aff2aef8e4ec45ee5ff4306d99b684bd91a5963a9b0052eac6e",
+    "picomem.elf.map": "bd6e61ed64bbcc3e00525743d7a0f8a44dabc43ea20085a57b97864db0aa135f",
+    "picomem.uf2": "9e3bcebd0e229a3025754676eb2d2f9f6269b5aed15bcebda62b280346677106"
+  },
+  "source_sha256": {
+    "src/USB_Host_Driver/msc/usb-checked.c": "88e379a013ba60e4078abd68e65bf5574ebe8a6814f4165da47f1c58ba418114",
+    "src/USB_Host_Driver/msc/usb-checked.h": "fd5566777520efc25b20481a98949ac556be1fa9dd0198e970399a2c58f67705",
+    "src/pm_cmd.cpp": "8ef0d0e8e92c4aae993b156916737188f128a1868301747360ccd6eee9752667",
+    "src/lib/tinyusb/src/class/msc/msc_host.c": "db627bd295ad55bc0bd0ad2eed78cef89b2336fe030282ce07568e823fcd5589",
+    "src/lib/tinyusb/src/class/msc/msc_host.h": "609d9be6961b77057c8f113a6f98443866c5cc1a9fb58928eb2be7d1adb9c25c",
+    "src/CMakeLists.txt": "e471ca2d50b22b55275410a7b830f37514027f8c7c1b0972f3b232987adb259e",
+    "tools/patches/tinyusb-0.19-checked-msc.patch": "269cf5474fa4e9bd65a8c2ef1265fbe36eed22619231e24000280f9f932d553b",
+    "tools/prepare-lfn-deps.py": "a385a31ef9edf3374021d7e642d09ed9c3dda1ae0045a6f2be04993a5039eb8d",
+    "tools/tests/usb-sync/msc-test.c": "ec6bb6f5702cab3092259d01f059336be8ac1bef509b20609b6693a81978417f",
+    "tools/tests/usb-sync/adapter-test.c": "4f87d381eb73629fe9a9d5a0910fdb253c90f09f3e352eab6808a98dbaf6245d",
+    "tools/tests/usb-sync/fatfs-test.c": "6c5f1e6d4b5a2658e61c9fb42764882e420cfddffc23d848a57e6d87ab3c538a",
+    "tools/tests/usb-sync/test.py": "3a68df981fa5e97fe116413a939e7cced8b03e80b12d0a36453225b944947cfb"
+  },
+  "installed_firmware_sha256": "55449b46e26e117a98c0ccd7edc41ff131466cb8617c0e8811dd3fbb3789a560",
+  "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+  "new_kernel_required": false,
+  "changes": "Record checked TinyUSB transfer failure before synthetic CSW replacement; preserve matching cache-query snapshot in three bounded cached CMD_USB_Status lines; no new USB commands, acceptance changes, reset/retry or write-policy changes",
+  "tests": {
+    "actual_tinyusb_cases": 18430,
+    "adapter_scenarios": 151,
+    "fatfs_mount_fat32_scenarios": 5,
+    "legacy_usb_cases": 14,
+    "elks_status_parser_cases": 29,
+    "asan_ubsan": "passed",
+    "arm_build": "passed",
+    "core0_stack_reserved": 4096,
+    "core1_stack_reserved": 2048,
+    "option_off_uf2_unchanged": true,
+    "hardware": "pending; candidate not flashed"
+  },
+  "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
+  "memory": {
+    "flash_bytes": 4808560,
+    "ram_bytes": 381340,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "upstream_pr_changed": false
+}

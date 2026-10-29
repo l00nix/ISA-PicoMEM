@@ -10,6 +10,8 @@
 #include "../../../src/USB_Host_Driver/msc/usb-checked.c"
 #include "../../../src/USB_Host_Driver/msc/fatfs_usb.c"
 static char status_text[80];
+bool tuh_msc_get_checked_fault(uint8_t d,uint32_t t,tuh_msc_checked_fault_t *out)
+{(void)d;(void)t;(void)out;return false;}
 void usb_set_status(uint8_t d,const char *fmt,...){
  assert(d==1);va_list a;va_start(a,fmt);int n=vsnprintf(status_text,sizeof(status_text),fmt,a);va_end(a);assert(n>0&&n+3<80);
 }

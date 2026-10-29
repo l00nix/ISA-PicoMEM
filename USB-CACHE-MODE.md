@@ -127,3 +127,5 @@ weakening the write guard. No such follow-up is implemented or staged yet.
 The result will determine whether transport handling needs correction or another
 query is justified. Missing cache information cannot justify a flush bypass.
 Full workload, Mac/FAT verification and DOS compatibility remain pending.
+
+The [transport-detail follow-up](USB-TRANSPORT-DETAIL.md) is now built and host-tested. Its physical test is pending.
