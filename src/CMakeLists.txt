@@ -89,6 +89,10 @@ if(PICOMEM_EXPERIMENTAL_LFN AND NOT PICOMEM_BOARD STREQUAL "PICOMEM_20")
 endif()
 option(PICOMEM_EXPERIMENTAL_LFN_CREATE "Experimental USB long-name creation" OFF)
 option(PICOMEM_EXPERIMENTAL_LFN_RENAME "Experimental same-parent USB file rename" OFF)
+option(PICOMEM_EXPERIMENTAL_STACK_RESERVE "Reserve 4 KiB for PicoMEM 2 core-0 file-service stack" OFF)
+if(PICOMEM_EXPERIMENTAL_STACK_RESERVE AND NOT PICOMEM_BOARD STREQUAL "PICOMEM_20")
+    message(FATAL_ERROR "Experimental stack reservation is audited for PicoMEM 2 only")
+endif()
 if(PICOMEM_EXPERIMENTAL_LFN_RENAME AND NOT PICOMEM_EXPERIMENTAL_LFN_CREATE)
     message(FATAL_ERROR "LFN rename requires LFN creation")
 endif()
@@ -366,6 +370,15 @@ endif()
 
 # qwiic added here as it need USE_FRONTPANEL definition for the OLED code
 add_subdirectory(qwiic)
+
+if(PICOMEM_EXPERIMENTAL_STACK_RESERVE)
+    # Core 0 has an otherwise empty 4 KiB SCRATCH_Y bank. Legacy DFS deletion
+    # can exceed the default 2 KiB reservation before USB calls/interrupts.
+    # Pin core 1 explicitly: its default inherits PICO_STACK_SIZE, but its
+    # SCRATCH_X bank also contains ISA code/data and cannot grow with core 0.
+    target_compile_definitions(picomem PRIVATE
+        PICO_STACK_SIZE=0x1000 PICO_CORE1_STACK_SIZE=0x800)
+endif()
 
 # ****     defines Common to all the PicoMEM version    ******
 if (PROJECT_TYPE STREQUAL "TEST")      
