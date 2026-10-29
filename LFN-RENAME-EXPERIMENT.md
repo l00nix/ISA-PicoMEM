@@ -2,7 +2,8 @@
 
 I am developing this as l00nix, with AI coding assistance, on
 `codex/dfs-long-name-rename`, after the hardware-tested creation milestone.
-**This rename candidate has not yet been flashed or tested on the PPC512.**
+**This rename candidate has passed PPC512 rename tests and independent byte
+checks after remount and a normal reboot.**
 The original metadata-only upstream PR remains separate and draft.
 
 Enable `PICOMEM_EXPERIMENTAL_LFN_RENAME=ON` together with
@@ -88,6 +89,23 @@ python3 tools/test-lfn-rom.py
 ```
 
 The paired [ELKS candidate](https://github.com/l00nix/picomem-elks/tree/codex/long-name-rename)
-adds `pmrename` and a native fixture probe. Hardware rename, independent Mac
-FAT checks, DOS regression testing and runtime resource measurements remain
+adds `pmrename` and a native fixture probe. Independent Mac FAT checks, DOS regression testing and runtime resource
+measurements remain
 before any release-candidate claim.
+
+## PPC512 validation
+
+On October 28, 2026, I saved and verified the full existing flash, flashed this
+candidate with verified readback, and booted the paired ELKS kernel. Exact
+metadata/create/rename ROM descriptors matched. Native rename tests passed
+regular-file and case-only renames, unchanged-name handling, append/readback
+after rename, and refusals for collisions, open files, directories and
+cross-parent moves. The public `pmrename` utility also renamed a file and
+renamed it back. Full independent FTP byte checks passed initially and after
+unmount/remount and a normal reboot; the retained creation fixtures remained unchanged.
+
+[Hardware results and actual PPC screenshot](https://github.com/l00nix/picomem-elks/blob/codex/long-name-rename/docs/LONG-NAME-RENAME.md#ppc512-results--october-28-2026).
+
+Tested UF2 SHA-256:
+`79055e63295aad3901d23ff17a93882ec3cf3cc8c5dd4702c36a5205626e31c8`.
+This remains experimental; no new upstream PR or release-candidate claim.
