@@ -1,0 +1,180 @@
+/* SPDX-License-Identifier: MIT
+ * Synchronous FatFs facade with firmware-owned USB storage. A late transfer can
+ * touch only this static buffer, never a returned caller buffer. On any ambiguous
+ * completion the buffer and device are quarantined until MCU restart. This is
+ * containment, not USB cancellation/reset recovery or power-loss atomicity.
+ */
+#include "tusb.h"
+#include "class/msc/msc_host.h"
+#include "ff.h"
+#include "diskio.h"
+#include "usb-checked.h"
+#include <string.h>
+#include "pico/time.h"
+
+#define SECTOR_BYTES 512u
+#define COMMAND_TIMEOUT_US 2000000u
+static uint8_t transfer_data[SECTOR_BYTES] __attribute__((aligned(4)));
+static msc_cbw_t request;
+static uint32_t tag;
+static uint8_t device;
+static bool active, failed, dirty, sync_supported;
+static bool waiting;
+
+static bool present(void)
+{
+    /* TinyUSB's mounted/capacity helpers index daddr-1 without bounds checks. */
+    return device > 0 && device <= CFG_TUH_DEVICE_MAX && tuh_msc_mounted(device);
+}
+
+bool pm_usb_accepting(void) { return !device && !active && !failed; }
+bool pm_usb_attach(uint8_t dev)
+{
+    if (!pm_usb_accepting() || !dev || dev > CFG_TUH_DEVICE_MAX ||
+        !tuh_msc_mounted(dev) || tuh_msc_get_block_size(dev, 0) != SECTOR_BYTES ||
+        !tuh_msc_get_block_count(dev, 0)) return false;
+    device = dev;
+    dirty = sync_supported = false;
+    return true;
+}
+void pm_usb_detach(uint8_t dev)
+{
+    if (dev != device) return;
+    if (active || dirty) failed = true;
+    device = 0;
+    sync_supported = false;
+    /* Do not release or repurpose transfer_data, request, or tag while failed. */
+}
+
+static bool complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
+{
+    if (failed) return true; /* Late success cannot undo quarantine. */
+    if (!active || !waiting || dev != device || !present() || !reply ||
+        !reply->cbw || !reply->csw || reply->user_arg != tag ||
+        memcmp(reply->cbw, &request, sizeof(request)) ||
+        reply->scsi_data != (request.total_bytes ? transfer_data : NULL) ||
+        reply->csw->signature != MSC_CSW_SIGNATURE || reply->csw->tag != tag ||
+        reply->csw->status != 0 || reply->csw->data_residue != 0) failed = true;
+    waiting = false;
+    return true;
+}
+
+static DRESULT command(uint8_t opcode, uint32_t sector)
+{
+    uint32_t deadline;
+    if (failed) return RES_ERROR;
+    if (!present()) return RES_NOTRDY;
+    if (!active || waiting || !tuh_msc_ready(device) || tag == UINT32_MAX) {
+        failed = true;
+        return RES_ERROR;
+    }
+    memset(&request, 0, sizeof(request));
+    request.signature = MSC_CBW_SIGNATURE;
+    request.tag = ++tag; /* Unique across detach/reconnect; never wrap/reuse. */
+    request.cmd_len = 10;
+    request.command[0] = opcode;
+    if (opcode != 0x35) {
+        request.total_bytes = SECTOR_BYTES;
+        request.dir = opcode == 0x28 ? 0x80 : 0;
+        request.command[2] = sector >> 24;
+        request.command[3] = sector >> 16;
+        request.command[4] = sector >> 8;
+        request.command[5] = sector;
+        request.command[8] = 1; /* One sector: never exceed fixed owned buffer. */
+    }
+    /* 35h: IMMED=0, SYNC_NV=0, LBA=0, blocks=0: wait for whole-medium sync. */
+    waiting = true;
+    deadline = time_us_32() + COMMAND_TIMEOUT_US;
+    if (!tuh_msc_scsi_command(device, &request,
+            request.total_bytes ? transfer_data : NULL, complete, tag)) {
+        failed = true; /* Even rejected submissions cannot recycle state. */
+        return RES_ERROR;
+    }
+    while (waiting && !failed) {
+        tuh_task();
+        if (!waiting || failed) break; /* A completed command wins at deadline. */
+        if (!present() || (int32_t)(time_us_32() - deadline) >= 0) failed = true;
+    }
+    return failed ? RES_ERROR : RES_OK;
+}
+
+static DRESULT begin(void)
+{
+    if (failed || active) return RES_ERROR;
+    if (!present()) return RES_NOTRDY;
+    active = true;
+    return RES_OK;
+}
+static DRESULT end(DRESULT result)
+{
+    if (result == RES_OK) active = false;
+    else failed = true; /* Includes detach mid-operation; lifetime is permanent. */
+    return result;
+}
+static DRESULT validate(const void *buf, LBA_t sector, UINT count)
+{
+    uint32_t capacity;
+    if (failed || active) return RES_ERROR;
+    if (!present()) return RES_NOTRDY;
+    capacity = tuh_msc_get_block_count(device, 0);
+    if (!buf || !count || count > UINT16_MAX || sector >= capacity ||
+        count > capacity - sector) return RES_PARERR;
+    return RES_OK;
+}
+DSTATUS usb_disk_status(void)
+{
+    if (!present()) return STA_NODISK | STA_NOINIT;
+    return failed ? STA_NOINIT : 0;
+}
+DSTATUS usb_disk_initialize(void) { return usb_disk_status(); }
+DRESULT usb_disk_read(BYTE *buf, LBA_t sector, UINT count)
+{
+    DRESULT r = validate(buf, sector, count);
+    if (r != RES_OK || (r = begin()) != RES_OK) return r;
+    while (count--) {
+        r = command(0x28, sector++);
+        if (r != RES_OK) break;
+        memcpy(buf, transfer_data, SECTOR_BYTES);
+        buf += SECTOR_BYTES;
+    }
+    return end(r);
+}
+DRESULT usb_disk_write(const BYTE *buf, LBA_t sector, UINT count)
+{
+    DRESULT r = validate(buf, sector, count);
+    if (r != RES_OK || (r = begin()) != RES_OK) return r;
+    /* Refuse unsupported flush before the first sector mutation on this device. */
+    if (!sync_supported) {
+        r = command(0x35, 0);
+        if (r != RES_OK) return end(r);
+        sync_supported = true;
+    }
+    while (count--) {
+        memcpy(transfer_data, buf, SECTOR_BYTES);
+        dirty = true;
+        r = command(0x2a, sector++);
+        if (r != RES_OK) break;
+        buf += SECTOR_BYTES;
+    }
+    return end(r);
+}
+DRESULT usb_disk_ioctl(BYTE cmd, void *buf)
+{
+    DRESULT r;
+    if (failed || active) return RES_ERROR;
+    if (!present()) return RES_NOTRDY;
+    if (cmd == CTRL_SYNC) {
+        r = begin();
+        if (r != RES_OK) return r;
+        r = command(0x35, 0);
+        if (r == RES_OK) { dirty = false; sync_supported = true; }
+        return end(r);
+    }
+    if (!buf) return RES_PARERR;
+    switch (cmd) {
+    case GET_SECTOR_COUNT: *(DWORD *)buf = tuh_msc_get_block_count(device, 0); return RES_OK;
+    case GET_SECTOR_SIZE: *(WORD *)buf = SECTOR_BYTES; return RES_OK;
+    case GET_BLOCK_SIZE: *(DWORD *)buf = 1; return RES_OK;
+    default: return RES_PARERR;
+    }
+}

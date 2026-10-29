@@ -11,22 +11,30 @@
 #include "diskio.h"
 #include <math.h>
 #include "class/msc/msc_host.h"
+#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
+#include "usb-checked.h"
+#endif
 
 // We are an 8-bit computer, confirm fatfs is too
 static_assert(sizeof(TCHAR) == sizeof(char));
 
 static FATFS msc_fatfs_volume;
+#ifndef PICOMEM_EXPERIMENTAL_USB_SYNC
 static volatile bool msc_volume_busy=false;
 static volatile bool msc_volume_error=false;
+#endif
+#ifndef PICOMEM_EXPERIMENTAL_USB_SYNC
 static scsi_inquiry_resp_t msc_inquiry_resp;
+#endif
 static uint8_t msc_dev_addr=0xFF;   // 0xFF no disk mounted
-#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+#if defined(PICOMEM_EXPERIMENTAL_FILE_ERRORS) && !defined(PICOMEM_EXPERIMENTAL_USB_SYNC)
 /* Do not continue using potentially inconsistent media after an I/O failure.
  * Deliberately not cleared by reconnect or a late completion; restart required.
  * This does not cancel a timed-out TinyUSB transfer or guarantee durability. */
 static volatile bool msc_io_fault;
 #endif
 
+#ifndef PICOMEM_EXPERIMENTAL_USB_SYNC
 bool inquiry_complete_cb(uint8_t dev_addr, tuh_msc_complete_data_t const *cb_data)
 {
     if (cb_data->csw->status != 0)
@@ -82,11 +90,35 @@ bool inquiry_complete_cb(uint8_t dev_addr, tuh_msc_complete_data_t const *cb_dat
     }
 }
 
+#endif
+
 void tuh_msc_mount_cb(uint8_t dev_addr)
 {
+#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
+    /* TinyUSB has already completed enumeration. Attach synchronously instead
+     * of launching another inquiry into a shared buffer. A second device or
+     * disconnect during inquiry must never recycle an outstanding USB buffer. */
+    if (msc_dev_addr != 0xFF || !pm_usb_attach(dev_addr)) return;
+    msc_dev_addr = dev_addr;
+    char drive_path[3] = "1:";
+    FRESULT result = f_mount(&msc_fatfs_volume, drive_path, 1);
+    if (result != FR_OK) {
+        pm_usb_detach(dev_addr);
+        msc_dev_addr = 0xFF;
+        usb_set_status(dev_addr, "?MSC filesystem mount failed (%d)", result);
+        return;
+    }
+    char cwd[2];
+    if (f_getcwd(cwd, sizeof(cwd)) != FR_OK) {
+        f_chdrive(drive_path);
+        f_chdir("/");
+    }
+    usb_set_status(dev_addr, "USB Disk mounted (checked I/O)");
+#else
     uint8_t const lun = 0;
     usb_set_status(dev_addr, "USB Disk mounted, inquiring");
     tuh_msc_inquiry(dev_addr, lun, &msc_inquiry_resp, inquiry_complete_cb, 0);
+#endif
 }
 
 void tuh_msc_umount_cb(uint8_t dev_addr)
@@ -97,12 +129,16 @@ void tuh_msc_umount_cb(uint8_t dev_addr)
     if (dev_addr != msc_dev_addr)
         return;
             
+#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
+    pm_usb_detach(dev_addr);
+#endif
     char drive_path[3] = "1:";
     f_unmount(drive_path);
     usb_set_status(dev_addr, "USB Disk Removed");
     msc_dev_addr=0xFF;
 }
 
+#ifndef PICOMEM_EXPERIMENTAL_USB_SYNC
 static void wait_for_disk_io(BYTE pdrv)
 {
     /* 2-second timeout — prevents a hung or disconnected USB drive from
@@ -230,3 +266,5 @@ DRESULT usb_disk_ioctl(BYTE cmd, void *buff)
         return RES_PARERR;
     }
 }
+
+#endif /* !PICOMEM_EXPERIMENTAL_USB_SYNC: legacy adapter */

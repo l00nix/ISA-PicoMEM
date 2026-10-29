@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-29",
+  "status": "host-tested; no hardware installation or validation yet",
+  "branch": "codex/usb-sync-lifetime",
+  "firmware_base_commit": "50a796e37b26950005ed59269de267a2008f9c5b",
+  "sdk_commit": "a1438dff1d38bd9c65dbd693f0e5db4b9ae91779",
+  "tinyusb_commit": "331c263400dd5ccf77264cab1fa6bbd9f374b44e",
+  "toolchain": "arm-none-eabi GCC 15.3.1",
+  "candidate_artifacts_sha256": {
+    "picomem.uf2": "2a6ca54c8e740522ce29f2af129f70517ee49295639df9f9880029c2b5ebbe8b",
+    "picomem.bin": "67f626784f295eaa93355800f1bae504765841de59e496daa1033ec8002c4b23",
+    "picomem.elf": "b5fe8be615ec1105f150c4470bc3de56ae26b28a9ec911616310e123cc754011",
+    "picomem.elf.map": "1a57cfacea8e1c78646c04387d5d6c4667ba90145cbdb3e217a00895106c3bb6"
+  },
+  "production_source_sha256": {
+    "src/CMakeLists.txt": "ae95ae5858d40f6e3246c2826947379f64f59795f353953bde88cff4f0d2bf31",
+    "src/lib/my_etherdfs/CMakeLists.txt": "44854e193375055bcd67f7291750eb248e5e9ba12fa0cb056aa5bd5fdb40fe7b",
+    "src/USB_Host_Driver/msc/fatfs_usb.c": "2ad599db4e2eef556b8f46958d38a7f1167458c131c9973a9b9e23a1d22a4fcb",
+    "src/USB_Host_Driver/msc/usb-checked.c": "ca4a911a7daa438fe1b180d94b558920f812031960fc0b2080038e6b31dc2004",
+    "src/USB_Host_Driver/msc/usb-checked.h": "ea9c21f94df012a5fe00b690e0ac2e114620183725a1707fbfffdc7b5508ae04",
+    "tools/prepare-lfn-deps.py": "a385a31ef9edf3374021d7e642d09ed9c3dda1ae0045a6f2be04993a5039eb8d",
+    "tools/patches/tinyusb-0.19-checked-msc.patch": "1fa293450b8caacd8dfe33434438c722de1d278dd5d18835239f7a1d98f24a0c",
+    "src/lib/tinyusb/src/class/msc/msc_host.c": "7d597911c42fc0b6616bde1f79a2242d4737d8605d7752eda4dfd66b39f446ca"
+  },
+  "baseline_firmware_sha256": "3788bbd56205c077f11a0b73a2f8b0909aa7cde39eb7eb33b5561289ffa219b4",
+  "disabled_option_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
+  "disabled_comparison": {
+    "passed": true,
+    "bin_bytes": 4804040,
+    "only_difference": "RTC __TIME__ literal",
+    "offset": 335256,
+    "baseline_time": "10:29:16",
+    "disabled_time": "13:15:49",
+    "all_other_bytes_identical": true
+  },
+  "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+  "new_kernel_required": false,
+  "tests": {
+    "actual_tinyusb_cases": 578,
+    "adapter_scenarios": 56,
+    "fatfs_mount_fat32_scenarios": 5,
+    "asan_ubsan": "passed",
+    "independent_mcopy_payload_bytes": 1537,
+    "existing_regression_suites": 10,
+    "arm_on_and_off_builds": "passed",
+    "stack_map": "core0 4096; core1 2048; no overlap",
+    "hardware": "pending"
+  },
+  "memory": {
+    "flash_bytes": 4804456,
+    "ram_bytes": 380700,
+    "flash_delta": 416,
+    "ram_delta": 512,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "limits": [
+    "Host transport models are not hardware USB/cache tests",
+    "One-sector transfer performance and runtime stack usage unmeasured",
+    "Unsupported or failed flush permanently stops USB I/O until firmware restart",
+    "Controller cancellation/reset recovery not implemented",
+    "No power-loss durability or transactional-write guarantee"
+  ],
+  "upstream_metadata_draft_pr_changed": false
+}

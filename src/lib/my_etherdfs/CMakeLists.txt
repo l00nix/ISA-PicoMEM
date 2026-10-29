@@ -1,4 +1,8 @@
 add_library(pm_etherdfs INTERFACE)
+if(PICOMEM_EXPERIMENTAL_USB_SYNC)
+ target_compile_definitions(pm_etherdfs INTERFACE PICOMEM_EXPERIMENTAL_USB_SYNC=1)
+ target_sources(pm_etherdfs INTERFACE ${CMAKE_SOURCE_DIR}/USB_Host_Driver/msc/usb-checked.c)
+endif()
 if(PICOMEM_EXPERIMENTAL_FILE_ERRORS)
  target_compile_definitions(pm_etherdfs INTERFACE PICOMEM_EXPERIMENTAL_FILE_ERRORS=1)
  target_sources(pm_etherdfs INTERFACE ${CMAKE_CURRENT_LIST_DIR}/checked-file.c)

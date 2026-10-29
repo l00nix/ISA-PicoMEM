@@ -15,8 +15,10 @@ for name,url,rev in items:
         git('checkout','--detach',rev)
     head=subprocess.check_output(['git','-C',str(p),'rev-parse','HEAD'],text=True).strip()
     if head!=rev:raise SystemExit(name+': expected '+rev+'; inspect before changing revisions')
-    if name=='tusb_xinput':
-        patch=root/'tools/patches/tusb-xinput-0.19.patch'
+    if subprocess.check_output(['git','-C',str(p),'diff','--cached'],text=True) or subprocess.check_output(['git','-C',str(p),'ls-files','--others','--exclude-standard'],text=True):
+        raise SystemExit(name+': unexpected staged/untracked files; left unchanged')
+    if name in ('tinyusb','tusb_xinput'):
+        patch=root/'tools/patches'/('tinyusb-0.19-checked-msc.patch' if name=='tinyusb' else 'tusb-xinput-0.19.patch')
         expected=patch.read_text()
         diff=subprocess.check_output(['git','-C',str(p),'diff'],text=True)
         if diff==expected:continue
@@ -25,4 +27,4 @@ for name,url,rev in items:
     elif subprocess.check_output(['git','-C',str(p),'status','--porcelain'],text=True):
         raise SystemExit(name+': unexpected local edits; left unchanged')
 subprocess.run(['git','-C',str(root),'submodule','update','--init','src/lib/rp2040-psram'],check=True)
-print('Pinned TinyUSB 0.19 + XInput compatibility adapter ready.')
+print('Pinned TinyUSB 0.19 (default-off checked MSC patch) + XInput adapter ready.')
