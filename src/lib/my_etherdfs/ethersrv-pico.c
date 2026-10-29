@@ -82,6 +82,9 @@ const unsigned char F_AM_CONVERT[4] = {FA_READ,FA_WRITE,FA_READ+FA_WRITE,FA_READ
 #endif
 
 #include "fs.h"
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+#include "checked-file.h"
+#endif
 #ifdef PICOMEM_EXPERIMENTAL_LFN
 #include "lfn/dispatch.h"
 #ifdef PICOMEM_EXPERIMENTAL_LFN_CREATE
@@ -475,6 +478,10 @@ static int process(unsigned char *reqbuff) {
       *ax = ERR_PATH_NOTFOUND;
     }
   } else if (query == AL_CLSFIL) { // AL_CLSFIL (0x06)
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+    /* Malformed payloads must not close a stale or truncated handle. */
+    *ax = reqbufflen == 2 ? pm_checked_close(wreqbuff[0]) : 13;
+#else
     // I do nothing, since I do not keep any open files around anyway.
     // just say 'ok' by sending back AX=0
     unsigned short fid;
@@ -483,6 +490,7 @@ static int process(unsigned char *reqbuff) {
     PM_INFO("CLOSE FILE\n");
     closefile(fid);
     *ax = 0;
+#endif
   } else if ((query == AL_SETATTR) && (reqbufflen > 1)) { // AL_SETATTR (0x0E)
     char fullpathname[DIR_MAX];
     int offset;

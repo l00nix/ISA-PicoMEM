@@ -44,6 +44,9 @@ uint32_t pm_filesize[MAXFILES]; // File size
 DIR dir_find;       /* Find directory object */
 
 #include "fs.h" /* include self for control */
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+#include "checked-file.h"
+#endif
 
 #ifdef BOARD_PICOMEM
 
@@ -51,6 +54,9 @@ DIR dir_find;       /* Find directory object */
 
 void init_fobj()
 {
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+   pm_file_errors_init();
+#endif
    for (uint8_t i=0;i<MAXFILES;i++) pm_fileopened[i]=false;
 }
 
@@ -66,6 +72,9 @@ void free_fobj(uint8_t fid)
 // Get the file object @ from its ID
 FIL *get_fobj(uint8_t fid)
 {
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+  if (pm_file_failed(fid)) return NULL;
+#endif
   //PM_INFO("Getfobj %d opened? %d\n",fid,pm_fileopened[fid]);
   if ((fid<MAXFILES)&&(pm_fileopened[fid])) 
      {
@@ -549,6 +558,13 @@ int openfile(struct fileprops *f, char *filepath, unsigned char f_mode) {
   PM_EnableSD();
   fr = f_stat(filepath, &fno);  //  Get the opened file info
   PM_PICO_EnablePSRAM();
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+  if (fr != FR_OK) {
+    unsigned error = pm_file_error(fr);
+    unsigned cleanup_error = pm_checked_close(fileid);
+    return -(int)(cleanup_error ? cleanup_error : error);
+  }
+#endif
   if (fr!=FR_OK) PM_INFO("! f_stat error : %d\n",fr);
 
   if (strlen(fno.altname)==0)  //If no alternate name, use name
@@ -578,6 +594,9 @@ int openfile(struct fileprops *f, char *filepath, unsigned char f_mode) {
 }
 
 void closefile(unsigned char fid) {
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+  (void)pm_checked_close(fid); /* Internal legacy API; wire caller uses result. */
+#else
   FIL *fd;
   FRESULT fr;
 
@@ -590,6 +609,7 @@ void closefile(unsigned char fid) {
       PM_PICO_EnablePSRAM();
       free_fobj(fid);
      }
+#endif
 }
 
 

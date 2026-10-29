@@ -20,6 +20,12 @@ static volatile bool msc_volume_busy=false;
 static volatile bool msc_volume_error=false;
 static scsi_inquiry_resp_t msc_inquiry_resp;
 static uint8_t msc_dev_addr=0xFF;   // 0xFF no disk mounted
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+/* Do not continue using potentially inconsistent media after an I/O failure.
+ * Deliberately not cleared by reconnect or a late completion; restart required.
+ * This does not cancel a timed-out TinyUSB transfer or guarantee durability. */
+static volatile bool msc_io_fault;
+#endif
 
 bool inquiry_complete_cb(uint8_t dev_addr, tuh_msc_complete_data_t const *cb_data)
 {
@@ -110,6 +116,9 @@ static void wait_for_disk_io(BYTE pdrv)
        //     printf("disk_io: timeout waiting for USB transfer\n");
             msc_volume_busy = false;
             msc_volume_error = true;
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+            msc_io_fault = true;
+#endif
             return;
         }        
     }
@@ -121,6 +130,11 @@ static bool disk_io_complete(uint8_t dev_addr, tuh_msc_complete_data_t const *cb
     /* Propagate SCSI command status — non-zero CSW status means the drive
      * reported an error (e.g. medium error, illegal request). */
     msc_volume_error = (cb_data->csw->status != 0);
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+    /* A nominally successful but short command is not a full sector transfer. */
+    if (cb_data->csw->data_residue != 0) msc_volume_error = true;
+    if (msc_volume_error) msc_io_fault = true;
+#endif
  //   if (msc_volume_error)
  //       printf("disk_io: SCSI error status %u\n", cb_data->csw->status);    
     msc_volume_busy = false; 
@@ -140,31 +154,65 @@ DSTATUS usb_disk_initialize()
 DRESULT usb_disk_read(BYTE *buff, LBA_t sector, UINT count)
 {
     uint8_t const lun = 0;
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+    if (msc_io_fault || msc_volume_busy) return RES_ERROR;
+    if (!tuh_msc_mounted(msc_dev_addr)) return RES_NOTRDY;
+    if (!buff || !count || count > UINT16_MAX) return RES_PARERR;
+#endif
   //  printf(">> usb_disk_read s%d c%d\n",sector,count);
     msc_volume_busy = true;
     msc_volume_error = false;
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+    if (!tuh_msc_read10(msc_dev_addr, lun, buff, sector, (uint16_t)count, disk_io_complete, 0)) {
+        msc_volume_busy = false;
+        msc_io_fault = true;
+        return RES_ERROR;
+    }
+#else
     tuh_msc_read10(msc_dev_addr, lun, buff, sector, (uint16_t)count, disk_io_complete, 0);
+#endif
     wait_for_disk_io(0); //wait_for_disk_io(pdrv);
 
-//    return msc_volume_error ? RES_ERROR : RES_OK;
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+    return msc_io_fault || msc_volume_error ? RES_ERROR : RES_OK;
+#endif
     return RES_OK;
 }
 
 DRESULT usb_disk_write(const BYTE *buff, LBA_t sector, UINT count)
 {
     uint8_t const lun = 0;
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+    if (msc_io_fault || msc_volume_busy) return RES_ERROR;
+    if (!tuh_msc_mounted(msc_dev_addr)) return RES_NOTRDY;
+    if (!buff || !count || count > UINT16_MAX) return RES_PARERR;
+#endif
     msc_volume_busy = true;
     msc_volume_error = false;
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+    if (!tuh_msc_write10(msc_dev_addr, lun, buff, sector, (uint16_t)count, disk_io_complete, 0)) {
+        msc_volume_busy = false;
+        msc_io_fault = true;
+        return RES_ERROR;
+    }
+#else
     tuh_msc_write10(msc_dev_addr, lun, buff, sector, (uint16_t)count, disk_io_complete, 0);
+#endif
     wait_for_disk_io(0);  //wait_for_disk_io(pdrv);
 
-//    return msc_volume_error ? RES_ERROR : RES_OK;
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+    return msc_io_fault || msc_volume_error ? RES_ERROR : RES_OK;
+#endif
     return RES_OK;
 }
 
 DRESULT usb_disk_ioctl(BYTE cmd, void *buff)
 {
     uint8_t const lun = 0;
+#ifdef PICOMEM_EXPERIMENTAL_FILE_ERRORS
+    if (msc_io_fault || msc_volume_busy) return RES_ERROR;
+    if (!tuh_msc_mounted(msc_dev_addr)) return RES_NOTRDY;
+#endif
     switch (cmd)
     {
     case CTRL_SYNC:

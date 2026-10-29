@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-29",
+  "status": "host-tested; hardware validation pending",
+  "branch": "codex/file-service-errors",
+  "firmware_base_commit": "02bac98f3267fe3dd965f4f32cecd062789d9bf5",
+  "elks_base_commit": "8e23241a2c99b77511d21c2a72d6f4fabb488e26",
+  "sdk_commit": "a1438dff1d38bd9c65dbd693f0e5db4b9ae91779",
+  "tinyusb_commit": "331c263400dd5ccf77264cab1fa6bbd9f374b44e",
+  "toolchain": "arm-none-eabi GCC 15.3.1",
+  "candidate_artifacts_sha256": {
+    "picomem.uf2": "3788bbd56205c077f11a0b73a2f8b0909aa7cde39eb7eb33b5561289ffa219b4",
+    "picomem.elf": "069692f506bf258b99cb5ede4791f2216d3b7f784e439601968e70d56786a008",
+    "picomem.elf.map": "638402c512ad5ed61f70237b04da4db70124b5b1f183e53e87a6d4e3f8fce406"
+  },
+  "production_source_sha256": {
+    "src/CMakeLists.txt": "3541038746c23c7f287d8e99efbc0b19b66f13933f4e8b1d08bd29e71a789a98",
+    "src/lib/my_etherdfs/CMakeLists.txt": "63bf4466c61c98e9352dfd40ccabe31f23bfc77d606a368cc6b5c6106c015bc3",
+    "src/lib/my_etherdfs/fs.c": "32c36ed4731e17670152b6d0c8fa9adb31218f943f07851e714a4b941f98d0e3",
+    "src/lib/my_etherdfs/ethersrv-pico.c": "e1878b03a7c915396c2340e3220760268c25f15432d672540d5a4b7d7f3be19a",
+    "src/lib/my_etherdfs/checked-file.c": "1cc4a0ac3e67c609f556d15b455b344f6d664fc6725d2f0170537d6e83e02bbd",
+    "src/lib/my_etherdfs/checked-file.h": "18dd3a804e457055406812d2236c0fb3b675b445cb4e13386144655da91dbece",
+    "src/USB_Host_Driver/msc/fatfs_usb.c": "0cf513a4ad374f063ff92355f6a67b01948bb0f8337e92edfa392ec9f7508f30"
+  },
+  "disabled_option_uf2_sha256": "3a52312588f0333c5588a897a64fdd6ebc24b70b38f1fce3e02f8b3ca98c01e5",
+  "disabled_matches_installed_diagnostics": true,
+  "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+  "new_kernel_required": false,
+  "tests": {
+    "fat32_real_dispatcher_fatfs": {
+      "passed": true,
+      "scenarios": 5,
+      "normal_independent_mcopy": true
+    },
+    "usb_adapter_transport_model": {
+      "passed": true,
+      "cases": 14
+    },
+    "elks_host_suite": {
+      "passed": true,
+      "new_close_error_codes": [
+        6,
+        19,
+        21,
+        31,
+        33
+      ]
+    },
+    "lfn_create_rename_diag_regressions": "passed",
+    "rom_descriptors": "passed",
+    "arm_build": "passed",
+    "stack_layout": "passed"
+  },
+  "memory_bytes": {
+    "flash": 4804040,
+    "ram": 380188,
+    "scratch_x": 3748,
+    "scratch_y": 4096,
+    "core0_stack": 4096,
+    "core1_stack": 2048
+  },
+  "hardware_changed": false,
+  "known_limits": [
+    "No USB SCSI SYNCHRONIZE CACHE command",
+    "Existing timeout does not cancel outstanding TinyUSB transfer; safe late-transfer buffer ownership unproven",
+    "No physical fault injection or power-loss persistence proof",
+    "Single-device mount callback assignment unchanged",
+    "DOS regression pending"
+  ],
+  "sd_write_tests": false
+}

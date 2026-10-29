@@ -101,3 +101,7 @@ With diagnostics disabled, the stack-reservation build reproduces the tested
 UF2 SHA-256 `4e144a3ed4f1a40db9da79043fe4660fe9e0c4f8a71253f962622a2e46efef13`.
 The full flash recovery backup and diagnostic firmware both passed readback
 verification before the hardware test. This is not a release candidate.
+
+The next [file-service error candidate](FILE-SERVICE-ERRORS.md) checks close and
+metadata failures and propagates USB transfer errors. Its host tests pass;
+PPC512 validation is pending.
