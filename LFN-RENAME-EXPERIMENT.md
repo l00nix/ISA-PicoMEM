@@ -89,7 +89,7 @@ python3 tools/test-lfn-rom.py
 ```
 
 The paired [ELKS candidate](https://github.com/l00nix/picomem-elks/tree/codex/long-name-rename)
-adds `pmrename` and a native fixture probe. DOS regression testing and runtime resource measurements remain
+adds `pmrename` and a native fixture probe. Runtime resource measurements remain
 before any release-candidate claim.
 
 ## PPC512 validation
@@ -116,3 +116,19 @@ No filesystem repair was requested; the stick was safely ejected afterward.
 The Mac-to-PicoMEM roundtrip passed too: ELKS remounted USB without rebooting,
 and full independent reads matched both rename fixtures and all three earlier
 creation fixtures. The old and intermediate names were absent.
+
+### DOS compatibility — October 29, 2026
+
+MS-DOS 6.22 / 4DOS 8.00 booted with this firmware. All three ROM descriptors
+matched, the HDD root was readable, and DOS read the complete renamed payloads
+through `RENAME~1.TXT` (3,073 bytes) and `KEEPTH~1.TXT` (4 bytes). All three
+earlier creation fixtures also matched through their aliases.
+
+A fresh temporary 8.3 file passed create/write, append, truncate/rewrite,
+ordinary DOS rename and deletion. Full readbacks and on-device CRC-32 checks
+passed at each content stage; all five retained fixtures remained unchanged
+after cleanup. [DOS screenshot and detailed results](https://github.com/l00nix/picomem-elks/blob/codex/long-name-rename/docs/LONG-NAME-RENAME.md#dos-compatibility--october-29-2026).
+
+This exercises the existing DOS file service without DOSLFN. Runtime
+measurements and power-loss behavior remain distinct from this compatibility
+check; this is still experimental.
