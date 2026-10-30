@@ -10,9 +10,11 @@ with tempfile.TemporaryDirectory(prefix='pm-usb-sync-') as d:
     tmp=pathlib.Path(d)
     flags=['-std=gnu11','-g','-fsanitize=address,undefined','-ffunction-sections','-DPICOMEM_EXPERIMENTAL_USB_SYNC=1','-I'+str(kit),'-I'+str(root/'src/lib/tinyusb/src'),'-I'+str(root/'src/lib/FatFs_SPI/ff15/source')]
     gc='-Wl,-dead_strip' if platform.system()=='Darwin' else '-Wl,--gc-sections'
-    for name in ('msc','adapter'):
+    for name in ('msc','adapter','late'):
         run(cc,*flags,kit/(name+'-test.c'),gc,'-o',tmp/name)
     run(tmp/'msc')
+    for variant in range(43): run(tmp/'late',str(variant))
+    print('PASS 43 bounded late-observation cases with ASan/UBSan')
     run(tmp/'adapter','write','report')
     count=1
     for op in ('read','write','sync'):

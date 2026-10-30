@@ -23,6 +23,13 @@ static uint8_t device;
 static bool active, failed, dirty, sync_supported;
 static bool waiting;
 static uint8_t fault_opcode;
+/* Observation only, for the initial clean no-data flush timeout. The main USB
+ * task already services the outstanding transfer; this does not pump/retry it. */
+#define LATE_WINDOW_US 30000000u
+static bool late_observing;
+static uint8_t late_device;
+static uint32_t late_tag, late_started;
+static void late_detached(void);
 /* A single diagnostic after a completed, clean pre-write flush failure. These
  * objects have separate lifetimes; neither can be reused after quarantine. */
 #define SENSE_BYTES 18u
@@ -64,6 +71,7 @@ bool pm_usb_attach(uint8_t dev)
 void pm_usb_detach(uint8_t dev)
 {
     if (dev != device) return;
+    late_detached();
     if (active || dirty) fault(FAULT_DETACH, 255, 0);
     device = 0;
     sync_supported = false;
@@ -379,9 +387,61 @@ report:
             "?USB fault op=35 f=2 s=1 r=0 d=0 rs=%s", sense_result);
 }
 
+static void late_report(const char *result, unsigned status, unsigned why, uint32_t elapsed)
+{
+    /* Preserve every original fault field. Observation never clears quarantine. */
+    if (late_device && late_device <= CFG_TUH_DEVICE_MAX)
+        usb_set_status(late_device,
+            "?USB fault op=35 f=6 s=255 r=0 d=0 obs=%s os=%u why=%u ms=%lu",
+            result, status, why, (unsigned long)(elapsed / 1000u));
+}
+static void late_finish(const char *result, unsigned status, unsigned why, uint32_t elapsed)
+{
+    late_observing = false;
+    late_report(result, status, why, elapsed);
+}
+static void late_detached(void)
+{
+    if (late_observing) {
+        uint32_t elapsed = time_us_32() - late_started;
+        late_finish(elapsed >= LATE_WINDOW_US ? "none" : "detach", 255, 0, elapsed);
+    }
+}
+void pm_usb_observe_late(void)
+{
+    if (!late_observing) return;
+    uint32_t elapsed = time_us_32() - late_started;
+    if (elapsed >= LATE_WINDOW_US) late_finish("none", 255, 0, elapsed);
+    else if (device != late_device || !present()) late_finish("detach", 255, 0, elapsed);
+}
+static void late_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
+{
+    if (!late_observing) return;
+    uint32_t elapsed = time_us_32() - late_started;
+    if (elapsed >= LATE_WINDOW_US) {
+        late_finish("none", 255, 0, elapsed);
+        return;
+    }
+    tuh_msc_checked_fault_t f;
+    memset(&f, 0, sizeof(f));
+    /* A late callback is evidence only. Require original identity and a checked
+     * terminal record, including raw status/residue agreement, to call it CSW. */
+    bool valid = dev == late_device && device == late_device && present() && reply &&
+        reply->cbw && reply->csw && reply->user_arg == late_tag &&
+        !memcmp(reply->cbw, &request, sizeof(request)) && !reply->scsi_data &&
+        reply->csw->signature == MSC_CSW_SIGNATURE && reply->csw->tag == late_tag &&
+        tuh_msc_get_checked_reply(dev, late_tag, &f) && f.tag == late_tag &&
+        f.opcode == 0x35 && f.stage == 3 && f.event == 0 && !f.reason &&
+        f.actual == 13 && f.expected == 13 && (f.expected_endpoint & 0x80) &&
+        f.endpoint == f.expected_endpoint && (f.checks & 31) == 31 &&
+        !f.data_bytes && !f.residue && f.csw_status <= 1 &&
+        f.csw_status == reply->csw->status && f.residue == reply->csw->data_residue;
+    late_finish(valid ? "csw" : "bad", valid ? f.csw_status : 255, f.reason, elapsed);
+}
+
 static bool complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
 {
-    if (failed) return true; /* Late success cannot undo quarantine. */
+    if (failed) { late_complete(dev, reply); return true; } /* Never undo quarantine. */
     if (!active || !waiting || dev != device || !present() || !reply ||
         !reply->cbw || !reply->csw || reply->user_arg != tag ||
         memcmp(reply->cbw, &request, sizeof(request)) ||
@@ -441,6 +501,13 @@ static DRESULT command(uint8_t opcode, uint32_t sector)
         else if ((int32_t)(time_us_32() - deadline) >= 0) {
             timeout_transport_report();
             fault(FAULT_TIMEOUT, 255, 0);
+            if (opcode == 0x35 && !dirty && !sync_supported) {
+                late_device = device;
+                late_tag = tag;
+                late_started = time_us_32();
+                late_observing = true;
+                late_report("wait", 255, 0, 0);
+            }
         }
     }
     if (sense_pending) collect_sense();

@@ -337,8 +337,10 @@ int main(int argc,char**argv)
  }else{
   unsigned expected_reports=(!strncmp(mode,"cache",5)||!strncmp(mode,"sense_",6)||
     ((wr||sync)&&(!strcmp(mode,"scsi")||!strcmp(mode,"syncfail"))))?2:1;
+  bool observing = (wr||sync)&&!strcmp(mode,"timeout");
+  if(observing)expected_reports++;
   assert(r==RES_ERROR&&failed&&reports==expected_reports);unsigned before=submissions;
-  assert(senses==(expected_reports==2&&strncmp(mode,"sense_skip_",11)?1:0));
+  assert(senses==(!observing&&expected_reports==2&&strncmp(mode,"sense_skip_",11)?1:0));
   if(!strncmp(mode,"cache",5)){
    unsigned i=strncmp(mode,"cache6_",7)!=0;const char *v=cache_case(i),*want="off";
    bool follow=true;
@@ -423,6 +425,7 @@ int main(int argc,char**argv)
   free(buf);caller=NULL;
   if(owned){memset(owned,0xc3,bus.total_bytes);assert(((unsigned char*)owned)[bus.total_bytes-1]==0xc3);}
   mounted=true;pm_usb_detach(1);assert(!pm_usb_attach(1));
+  if(observing){expected_reports++;assert(strstr(status_text,"obs=detach"));strcpy(first_fault,status_text);}
   if(callback)respond(true);
   BYTE again[512];assert(usb_disk_read(again,12,1)==RES_ERROR);
   assert(usb_disk_write(again,12,1)==RES_ERROR&&usb_disk_ioctl(CTRL_SYNC,NULL)==RES_ERROR);

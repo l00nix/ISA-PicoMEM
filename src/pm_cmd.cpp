@@ -2195,6 +2195,9 @@ continue;  // Skip all ISA-specific update code below
 #if USE_USBHOST
 if (USB_Host_Enabled)
  {
+#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
+  pm_usb_observe_late();
+#endif
   tuh_task();
 
   if (pm_mouse.event&&MOUSE_Enabled)
