@@ -33,6 +33,7 @@ target_sources(USB_Host_Driver INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/xinput/oldxinput.c
     ${CMAKE_CURRENT_LIST_DIR}/../USB_Host_Driver/msc/fatfs_usb.c
     ${CMAKE_CURRENT_LIST_DIR}/../USB_Host_Driver/usb.c    
+    ${CMAKE_CURRENT_LIST_DIR}/../USB_Host_Driver/usb-status.c
     )
 
 add_library(tinyusb_config INTERFACE)

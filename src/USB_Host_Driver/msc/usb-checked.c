@@ -59,6 +59,8 @@ static bool present(void)
 }
 
 bool pm_usb_accepting(void) { return !device && !active && !failed; }
+uint8_t pm_usb_selected_device(void) { return device; }
+bool pm_usb_faulted(void) { return failed; }
 bool pm_usb_attach(uint8_t dev)
 {
     if (!pm_usb_accepting() || !dev || dev > CFG_TUH_DEVICE_MAX ||

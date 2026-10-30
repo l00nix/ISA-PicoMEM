@@ -936,6 +936,10 @@ void PM_ExecCMD()
       usb_print_status();
       if ((PM_Config->EnableUSB)==1)
         {
+#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
+         usb_build_inventory((char *)&PCCR_Param, 1024);
+         pm_usb_append_transport_status((char *)&PCCR_Param, 1024);
+#else
          usbnb=usb_get_devnb();
     
          str_tmp[0]=usbnb+1;  // Nb of Lines to display
@@ -953,9 +957,6 @@ void PM_ExecCMD()
                PM_INFO("%s\n",str_tmp);
                str_tmp+=strlen(str_tmp)+1;   // Move pointer at the end of the current string
               }
-#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
-         static_assert(CFG_TUH_DEVICE_MAX <= 4, "USB diagnostics require at most four devices");
-         pm_usb_append_transport_status((char *)&PCCR_Param, 1024);
 #endif
         }
         else 

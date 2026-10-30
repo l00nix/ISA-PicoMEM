@@ -4,6 +4,7 @@ target_link_libraries(USB_Host_Driver INTERFACE tinyusb_board)
 target_sources(USB_Host_Driver INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/hid_app.c
     ${CMAKE_CURRENT_LIST_DIR}/usb.c  
+    ${CMAKE_CURRENT_LIST_DIR}/usb-status.c
     ${CMAKE_CURRENT_LIST_DIR}/hid_devices/keyboard.c
     ${CMAKE_CURRENT_LIST_DIR}/hid_devices/joystick.c
     ${CMAKE_CURRENT_LIST_DIR}/msc/fatfs_usb.c

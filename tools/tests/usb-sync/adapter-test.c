@@ -298,7 +298,9 @@ int main(int argc,char**argv)
  memset(buf,0x5a,1024);for(unsigned i=0;i<1024;i++)disk[i]=(unsigned char)(i*13+7);
  assert(usb_disk_status()==(STA_NODISK|STA_NOINIT)&&usb_disk_read(buf,12,1)==RES_NOTRDY);
  assert(!pm_usb_attach(0)&&!pm_usb_attach(255));blocksize=4096;assert(!pm_usb_attach(1));blocksize=512;
+ assert(!pm_usb_selected_device()&&!pm_usb_faulted());
  assert(pm_usb_attach(1)&&!pm_usb_attach(1)&&usb_disk_status()==0);
+ assert(pm_usb_selected_device()==1&&!pm_usb_faulted());
  ticks=UINT32_MAX-500000;
  if(!strcmp(mode,"guards")){
   DWORD count;WORD size;
@@ -424,7 +426,9 @@ int main(int argc,char**argv)
   /* Simulated late DMA after caller free: ASan catches any caller pointer leak. */
   free(buf);caller=NULL;
   if(owned){memset(owned,0xc3,bus.total_bytes);assert(((unsigned char*)owned)[bus.total_bytes-1]==0xc3);}
+  assert(pm_usb_faulted());
   mounted=true;pm_usb_detach(1);assert(!pm_usb_attach(1));
+  assert(!pm_usb_selected_device()&&pm_usb_faulted());
   if(observing){expected_reports++;assert(strstr(status_text,"obs=detach"));strcpy(first_fault,status_text);}
   if(callback)respond(true);
   BYTE again[512];assert(usb_disk_read(again,12,1)==RES_ERROR);

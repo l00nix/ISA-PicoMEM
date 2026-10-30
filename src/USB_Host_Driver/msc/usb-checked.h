@@ -6,6 +6,9 @@
 #include <stddef.h>
 /* Core-0 only, like the existing FatFs/USB task dispatcher. No automatic retry. */
 bool pm_usb_accepting(void);
+/* Cached file-service selection/fault, not an ELKS mount state. */
+uint8_t pm_usb_selected_device(void);
+bool pm_usb_faulted(void);
 bool pm_usb_attach(uint8_t dev);
 void pm_usb_detach(uint8_t dev);
 /* Core-0 loop hook: bounded late observation only, no USB calls or waits. */
