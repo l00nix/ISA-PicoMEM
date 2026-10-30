@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-30",
+  "status": "Built and host-tested; hardware observation pending; RW release blocked",
+  "branch": "codex/usb-sync-lifetime",
+  "firmware_commit": "4afc5abe1a78321be777435e2a94674b690a8e4a",
+  "candidate_artifacts_sha256": {
+    "picomem.bin": "7b5195170fc37a885f170bcf0ed5ceb653b9126b0096183e02342de1c207bbaf",
+    "picomem.elf": "e2d47a2696e1628aa56a8a7c4a9fc7e32aa8a8238d860077a9db88757034602c",
+    "picomem.elf.map": "d01413bfb0f61dc8fcef4c6ce6d74d864b0ee448ddf6c00853992e7645fcb209",
+    "picomem.uf2": "cfaa1629d7ac3a49475c8798086c4b21eb3047f689daa3730ebfc8cf2401a2f6"
+  },
+  "source_sha256": {
+    "src/USB_Host_Driver/msc/usb-checked.c": "a525824eb10abbf0428b4d6af7a295601d5e80dae9f2b2165d44599ee8f6f510",
+    "src/lib/tinyusb/src/class/msc/msc_host.c": "250758e372ccdc742788ca9990ba9944e3e527efc7dae6005c1df9fab4af0125",
+    "src/lib/tinyusb/src/class/msc/msc_host.h": "f3a9a2fef84ef8cf2e537931dac18db69f3ecf673cb9538f1ca053f5ee632329",
+    "src/lib/tinyusb/src/host/hcd.h": "6c3d81a01db335903245f8eda0fcee98277fd4f04df6d9ddc2f03d46c4afcc44",
+    "src/lib/tinyusb/src/portable/raspberrypi/rp2040/hcd_rp2040.c": "53990065e42b4897510aee239df235a7fd897c74603451675d7329fa75db2966",
+    "src/CMakeLists.txt": "6f431678d57f5ec3affab4b282885da3e7421d438d48e512e46f504946a77ac2",
+    "tools/patches/tinyusb-0.19-checked-msc.patch": "e8310c1cc7da8eeb81b9155847bd531b7c00f6e99dabc6b3467fa36294aef06a",
+    "tools/tests/usb-sync/msc-test.c": "31dfe408a635fba11dfdcb6fced69dcf06ab151797c43e1c0d4d89224ad3976b",
+    "tools/tests/usb-sync/adapter-test.c": "89c0f79cdaf66c983b34a8ca4d56e4fcfbe972e184d1ba5f9a856510308342fc",
+    "tools/tests/usb-sync/host-state-test.py": "24e0bd3ec63e4c5960ec95a1197d0d4a46343b5591153fef5976695439ce2e24",
+    "tools/tests/usb-sync/test.py": "2fd346b47edb41ce524535631a096d789d08a8adbd4d8ecdbc07ef2309f547c0",
+    "src/USB_Host_Driver/msc/usb-checked.h": "c1b092c37413e67a4ed82f288a5d0d2c0ad1ffc46e81c35f0f789f06060c7cdc",
+    "src/pm_cmd.cpp": "bf458392341c8202d203a29c7e0250c85885b68e67e3611e280a38abefe97ef5",
+    "tools/tests/usb-sync/late-test.c": "d842b72d3210fc15d509d61354127d6af2e56bbeadfee704e1cb6e08b4736224"
+  },
+  "installed_firmware_sha256": "e9e2b88cbcbc5301fa1e49aa1de143732b3118db48f56b5b408f08f4d93010eb",
+  "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+  "new_kernel_required": false,
+  "changes": "Initial clean no-data flush timeout keeps the normal two-second error and permanent write quarantine. Observe existing completion callback for 30 additional seconds in normal task loop. No resubmit, USB reset, recovery or delayed caller return; freeze original timeout/HCD evidence.",
+  "tests": {
+    "actual_tinyusb_cases": 19268,
+    "adapter_scenarios": 191,
+    "native_getter_mock_register_cases": 1320,
+    "native_getter_test_scope": "Actual getter and endpoint lookup extracted from source; fake registers and IRQ-save/restore; no physical controller/IRQ emulation",
+    "fatfs_mount_fat32_scenarios": 5,
+    "legacy_usb_cases": 14,
+    "asan_ubsan": "passed",
+    "arm_build": "passed",
+    "core0_stack_reserved": 4096,
+    "core1_stack_reserved": 2048,
+    "runtime_fault_path_peak": "unmeasured",
+    "option_off_uf2_unchanged": true,
+    "hardware": "pending",
+    "late_observation_cases": 43
+  },
+  "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
+  "memory": {
+    "flash_bytes": 4812568,
+    "ram_bytes": 382088,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "upstream_pr_changed": false
+}
