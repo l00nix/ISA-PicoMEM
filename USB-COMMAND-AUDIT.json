@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-30",
+  "scope": "Software audit and host integration tests only; no new firmware or hardware commands",
+  "firmware_base_commit": "c4fb56ea302b3d00abb1819b8d807986cd12e56b",
+  "tinyusb_commit": "331c263400dd5ccf77264cab1fa6bbd9f374b44e",
+  "references": [
+    {
+      "file": "linux-v6.12-transport.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/usb/storage/transport.c",
+      "sha256": "cdc143fa9085570241f440e74b8dce31ead663c504837cbca97fac64f771e90b"
+    },
+    {
+      "file": "linux-v6.12-sd.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/scsi/sd.c",
+      "sha256": "7c6802ba7a5bf6433c127e734e4e591ccee5741121efcd68912039b5d1928bc5"
+    },
+    {
+      "file": "linux-v6.12-scsi_lib.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/scsi/scsi_lib.c",
+      "sha256": "11a219d5cf6a76059910018f0942bb343563276e62dba85d8621421356034130"
+    }
+  ],
+  "usb_bot_reference": "https://www.usb.org/sites/default/files/usbmassbulk_10.pdf",
+  "checked_sources": {
+    "src/USB_Host_Driver/msc/usb-checked.c": "7945dc9f1d8e0c3e4115b0ca561a1e110c4ef3727f32e10ca19f673c701774cf",
+    "src/lib/tinyusb/src/class/msc/msc_host.c": "250758e372ccdc742788ca9990ba9944e3e527efc7dae6005c1df9fab4af0125",
+    "tools/patches/tinyusb-0.19-checked-msc.patch": "e8310c1cc7da8eeb81b9155847bd531b7c00f6e99dabc6b3467fa36294aef06a",
+    "tools/tests/usb-sync/wire-test.c": "2b4fc513c2b2c148a27348bcc7db02868c8c7634b5afc7893fdb85ec11242087",
+    "tools/tests/usb-sync/test.py": "07ee9901c4b93425ccbedaa480917404fbd5937fd1120a162f3680b5223bd084"
+  },
+  "tests": {
+    "joined_adapter_tinyusb_endpoint_cases": 72,
+    "tinyusb_completion_cases": 19268,
+    "adapter_scenarios": 191,
+    "late_observation_cases": 43,
+    "fatfs_scenarios": 5,
+    "native_snapshot_getter_models": 1320,
+    "sanitizers": "AddressSanitizer and UndefinedBehaviorSanitizer",
+    "result": "passed",
+    "log_sha256": "2122d010d48f9c46ba571f569dd765069204f38f518309fd21c33da8b484aeb6"
+  },
+  "findings": [
+    "Golden 31-byte CBW and no-data CMD-to-STATUS transition match USB BOT and Linux v6.12 zero-length flush construction.",
+    "Current cache policy is stricter than Linux fallback; failed flush does not establish write-through.",
+    "Known BOT recovery gap: stalled CSW is quarantined, not clear-halt/retried. This is not evidence for the observed SanDisk timeout.",
+    "Generic 05/26/00 follows completed failure; no cache queries because only 05/20/00 currently permits them."
+  ],
+  "limits": [
+    "Endpoint completions are modelled; native controller registers and bus are not simulated.",
+    "No proven hardware fix, new firmware, ARM build or physical retest in this milestone.",
+    "No change to cache/timeout/write safeguards."
+  ],
+  "next_step": "Prepare a read-only cache-capability probe before the first flush. Preserve raw bounded mode responses; allow a future write-through policy only after validated WCE=0, require flushing for WCE=1, leave unknown policy read-only. Do not infer cache policy from command rejection."
+}

@@ -272,3 +272,13 @@ The original upstream metadata-only draft PR is unchanged.
 - [USB Mass Storage Bulk-Only Transport 1.0](https://www.usb.org/sites/default/files/usbmassbulk_10.pdf): command/data/status phases and CSW validity.
 - [T10 SBC-3 draft material](https://t10.org/ftp/t10/document.05/05-344r0.pdf): SYNCHRONIZE CACHE(10) command fields.
 - [T10 cache synchronization clarification](https://www.t10.org/ftp/t10/document.03/03-388r2.pdf): IMMED and SYNC_NV behavior.
+
+
+## Command audit and joined transport tests
+
+The [30 October command audit](USB-COMMAND-AUDIT.md) found no flush encoding or
+CMD-to-STATUS transition defect in the source review and host tests. All 72 new
+joined adapter/TinyUSB endpoint cases pass, along with the existing suites. This
+does not resolve the hardware blocker. It identifies cache-capability probing as
+the next step while retaining the write safeguards; no new firmware is required
+for the audit.
