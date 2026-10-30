@@ -145,12 +145,26 @@ static bool cache_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
         reply->csw->signature == MSC_CSW_SIGNATURE &&
         reply->csw->tag == q->tag && reply->csw->data_residue <= CACHE_BYTES) {
         cache_transport_report(dev, q->tag);
-        /* For these queries the pinned transport validates actual DATA bytes
-         * against residue for BOTH success and command-failed CSWs. */
         if (reply->csw->status <= 1) {
-            cache_completed = true;
-            cache_length = CACHE_BYTES - reply->csw->data_residue;
-            cache_result[cache_index] = reply->csw->status ? "s1" : "ok";
+            tuh_msc_checked_fault_t f;
+            /* Never derive length solely from residue: some successful MODE
+             * replies have short DATA and residue zero. Require this command's
+             * checked terminal record; parse only bytes both counts permit.
+             * Raw status/residue stay intact for diagnostics. Missing/malformed
+             * evidence cannot authorize parsing or the alternate query. */
+            if (tuh_msc_get_checked_reply(dev, q->tag, &f) &&
+                f.tag == q->tag && f.opcode == q->command[0] && !f.reason &&
+                f.stage == 3 && f.event == 0 && f.actual == sizeof(msc_csw_t) &&
+                f.expected == sizeof(msc_csw_t) && (f.endpoint & 0x80) &&
+                f.endpoint == f.expected_endpoint && (f.checks & 31) == 31 &&
+                f.csw_status == reply->csw->status &&
+                f.residue == reply->csw->data_residue && f.data_bytes <= CACHE_BYTES &&
+                (!f.csw_status || f.data_bytes == CACHE_BYTES - f.residue)) {
+                cache_completed = true;
+                cache_length = CACHE_BYTES - f.residue;
+                if (cache_length > f.data_bytes) cache_length = f.data_bytes;
+                cache_result[cache_index] = reply->csw->status ? "s1" : "ok";
+            }
         } else {
             cache_result[cache_index] = "phase";
         }

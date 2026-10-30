@@ -1,5 +1,5 @@
 diff --git a/src/class/msc/msc_host.c b/src/class/msc/msc_host.c
-index eb69ae400..3038eda0d 100644
+index eb69ae400..6262de6a5 100644
 --- a/src/class/msc/msc_host.c
 +++ b/src/class/msc/msc_host.c
 @@ -61,6 +61,12 @@ typedef struct {
@@ -29,7 +29,7 @@ index eb69ae400..3038eda0d 100644
  
    if (!usbh_edpt_xfer(daddr, p_msc->ep_out, (uint8_t*) &epbuf->cbw, sizeof(msc_cbw_t))) {
      usbh_edpt_release(daddr, p_msc->ep_out);
-@@ -321,12 +334,142 @@ void msch_close(uint8_t dev_addr) {
+@@ -321,12 +334,148 @@ void msch_close(uint8_t dev_addr) {
    tu_memclr(p_msc, sizeof(msch_interface_t));
  }
  
@@ -133,13 +133,15 @@ index eb69ae400..3038eda0d 100644
 +  bool const pm_sense = cbw->command[0] == 0x03 && cbw->cmd_len == 6 &&
 +                        cbw->dir == TUSB_DIR_IN_MASK && cbw->total_bytes == 18 &&
 +                        cbw->command[4] == 18;
++  /* Only these exact read-only cache-page queries allow short successful
++   * replies independent of CSW residue. Sector I/O and REQUEST SENSE retain
++   * their existing checks. Reserved/control bytes must also match. */
++  static const uint8_t cache6[16] = {0x1a, 8, 8, 0, 64};
++  static const uint8_t cache10[16] = {0x5a, 8, 8, 0, 0, 0, 0, 0, 64};
 +  bool const pm_cache = cbw->dir == TUSB_DIR_IN_MASK && cbw->total_bytes == 64 &&
-+                        cbw->command[1] == 8 && cbw->command[2] == 8 &&
-+                        cbw->command[3] == 0 &&
-+                        ((cbw->command[0] == 0x1a && cbw->cmd_len == 6 &&
-+                          cbw->command[4] == 64) ||
-+                         (cbw->command[0] == 0x5a && cbw->cmd_len == 10 &&
-+                          cbw->command[7] == 0 && cbw->command[8] == 64));
++                        cbw->lun == 0 &&
++                        ((cbw->cmd_len == 6 && !memcmp(cbw->command, cache6, 16)) ||
++                         (cbw->cmd_len == 10 && !memcmp(cbw->command, cache10, 16)));
 +  if (p_msc->stage == MSC_STAGE_IDLE) return false; /* Late duplicate event. */
 +  if (event != XFER_RESULT_SUCCESS ||
 +      (p_msc->stage == MSC_STAGE_CMD &&
@@ -151,7 +153,11 @@ index eb69ae400..3038eda0d 100644
 +       (ep_addr != p_msc->ep_in || xferred_bytes != sizeof(msc_csw_t) ||
 +        csw->signature != MSC_CSW_SIGNATURE || csw->tag != cbw->tag ||
 +        csw->data_residue > cbw->total_bytes || csw->status > 2 ||
-+        (((pm_sense && csw->status == 0) || (pm_cache && csw->status <= 1)) &&
++        /* Status-0 MODE replies may be shorter than allocation even when
++         * residue is zero. Preserve both raw counts in the terminal record;
++         * the adapter parses only min(actual, allocation - residue). Failed
++         * MODE commands still require agreement before an alternate query. */
++        (((pm_sense && csw->status == 0) || (pm_cache && csw->status == 1)) &&
 +         p_msc->pm_data_bytes != cbw->total_bytes - csw->data_residue)))) {
 +    pm_msch_record(dev_addr, ep_addr, event, xferred_bytes, true);
 +    return pm_msch_failed(dev_addr);
@@ -173,19 +179,21 @@ index eb69ae400..3038eda0d 100644
      case MSC_STAGE_CMD:
        // Must be Command Block
 diff --git a/src/class/msc/msc_host.h b/src/class/msc/msc_host.h
-index b5fd55547..90cbe50cd 100644
+index b5fd55547..563f8c6fb 100644
 --- a/src/class/msc/msc_host.h
 +++ b/src/class/msc/msc_host.h
-@@ -48,6 +48,28 @@ typedef struct {
+@@ -48,6 +48,30 @@ typedef struct {
    uintptr_t user_arg;   // user argument
  }tuh_msc_complete_data_t;
  
 +#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
-+/* Diagnostic snapshot only. Reasons: 0 checked completion, 1 event, 2 endpoint, 3 length, 4 CSW
++/* Terminal transfer evidence. Reasons: 0 checked completion, 1 event, 2 endpoint, 3 length, 4 CSW
 + * signature, 5 tag, 6 residue, 7 status, 8 DATA/residue, 9 device phase error.
 + * Stage uses MSC_STAGE_* (CMD=1, DATA=2, STATUS=3). Unknown CSW: status=255,
 + * residue=UINT32_MAX. checks bits: present, signature, tag, residue, status,
 + * DATA/residue agreement. A present CSW requires a complete successful IN.
++ * Successful bounded MODE queries may lack agreement; consume no more than
++ * min(data_bytes, allocation - residue). The sample never sets cache policy.
 + */
 +typedef struct {
 +  uint32_t tag, actual, expected, data_bytes, residue;

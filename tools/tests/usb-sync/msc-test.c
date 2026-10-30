@@ -112,8 +112,8 @@ int main(void)
   assert(!msch_xfer_cb(1,variant==2?2:0x81,XFER_RESULT_SUCCESS,8));
   assert(completed==1&&status==2);tests++;
  }
- /* MODE SENSE(6/10): a clean status 1 may permit the alternate query.
-  * Therefore validate DATA/residue agreement for BOTH statuses 0 and 1. */
+ /* MODE SENSE(6/10): status 0 accepts independently bounded actual/residue;
+  * status 1 still needs agreement. Raw evidence must never be normalized. */
  for(unsigned ten=0;ten<2;ten++)for(unsigned st=0;st<2;st++)
  for(unsigned received=0;received<=65;received++)for(unsigned residue=0;residue<=65;residue++){
   setup(MSC_STAGE_CMD);msc_cbw_t*c=&get_epbuf(1)->cbw;
@@ -126,14 +126,17 @@ int main(void)
    assert(accepted&&!completed&&get_itf(1)->pm_data_bytes==received);
    get_epbuf(1)->csw.data_residue=residue;get_epbuf(1)->csw.status=st;
    bool ok=msch_xfer_cb(1,0x81,XFER_RESULT_SUCCESS,13);
-   assert(ok==(residue<=64&&received==64-residue));
+   assert(ok==(residue<=64&&(!st||received==64-residue)));
    assert(completed==1&&status==(ok?st:2));
    tuh_msc_checked_fault_t f;
    assert(tuh_msc_get_checked_fault(1,123,&f)==!ok);
+   assert(tuh_msc_get_checked_reply(1,123,&f));
+   assert(f.data_bytes==received&&f.residue==residue&&f.csw_status==st);
+   if(ok)assert(!f.reason&&f.checks==(received==64-residue?63:31));
    if(!ok){assert(f.reason==(residue>64?6:8)&&f.data_bytes==received&&f.residue==residue&&f.opcode==(ten?0x5a:0x1a));}
   }tests++;
  }
- for(unsigned ten=0;ten<2;ten++)for(unsigned variant=0;variant<8;variant++){
+ for(unsigned ten=0;ten<2;ten++)for(unsigned variant=0;variant<25;variant++){
   setup(MSC_STAGE_DATA);msc_cbw_t*c=&get_epbuf(1)->cbw;
   c->total_bytes=64;c->cmd_len=ten?10:6;c->command[0]=ten?0x5a:0x1a;
   c->command[1]=8;c->command[2]=8;c->command[ten?8:4]=64;
@@ -145,6 +148,8 @@ int main(void)
   if(variant==5)c->command[1]=0;
   if(variant==6)c->command[2]=0x48; /* Changeable, not current. */
   if(variant==7)c->command[3]=1;
+  if(variant==8)c->lun=1;
+  if(variant>=9)c->command[variant-9]^=1; /* every CDB byte */
   assert(!msch_xfer_cb(1,variant==2?2:0x81,XFER_RESULT_SUCCESS,8));
   assert(completed==1&&status==2);tests++;
  }
@@ -176,7 +181,7 @@ int main(void)
   unsigned n=sampled?(received>16?16:received):0;
   assert(f.sample_length==n);
   for(unsigned j=0;j<16;j++)assert(f.sample[j]==(j<n?j+1:0));
-  if(variant==5&&received<64)assert(f.reason==8&&f.data_bytes==received&&f.residue==0);
+  if(variant==5&&received<64)assert(!f.reason&&f.checks==31&&f.data_bytes==received&&f.residue==0);
   if(variant==0&&received<=64)assert(f.reason==0&&f.checks==63);
   assert(!msch_xfer_cb(1,0x81,XFER_RESULT_SUCCESS,64));
   tuh_msc_checked_fault_t after;assert(tuh_msc_get_checked_reply(1,123,&after));

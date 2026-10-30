@@ -10,8 +10,9 @@
 #include "../../../src/USB_Host_Driver/msc/usb-checked.c"
 #include "../../../src/USB_Host_Driver/msc/fatfs_usb.c"
 static char status_text[80];
+static tuh_msc_checked_fault_t model_reply;
 bool tuh_msc_get_checked_reply(uint8_t d,uint32_t t,tuh_msc_checked_fault_t *out)
-{(void)d;(void)t;(void)out;return false;}
+{if(d!=1||!out||t!=model_reply.tag)return false;*out=model_reply;return true;}
 void usb_set_status(uint8_t d,const char *fmt,...){
  assert(d==1);va_list a;va_start(a,fmt);int n=vsnprintf(status_text,sizeof(status_text),fmt,a);va_end(a);assert(n>0&&n+3<80);
 }
@@ -39,6 +40,9 @@ void tuh_task_ext(uint32_t ms,bool isr)
  if(bus.command[0]==0x5a){
   assert(failed&&!dirty&&!writes&&bus.total_bytes==64);
   memset(owned,0,64);BYTE *b=owned;b[1]=26;b[8]=8;b[9]=18;csw.data_residue=36;
+  model_reply=(tuh_msc_checked_fault_t){.tag=bus.tag,.opcode=0x5a,
+   .stage=3,.endpoint=0x81,.expected_endpoint=0x81,.actual=13,.expected=13,
+   .data_bytes=28,.residue=36,.checks=63};
  }else if(bus.command[0]==0x03){
   assert(failed&&!dirty&&!writes&&bus.total_bytes==18);
   memset(owned,0,18);BYTE *b=owned;b[0]=0x70;b[2]=5;b[7]=10;b[12]=0x20;

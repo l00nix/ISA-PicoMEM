@@ -148,6 +148,30 @@ static void respond(bool late)
    model_reply.expected=64;model_reply.data_bytes=0;model_reply.residue=UINT32_MAX;
    model_reply.csw_status=255;model_reply.checks=0;model_reply.sample_length=0;
   }
+  if(!strcmp(v,"zero_header")||!strcmp(v,"zero_short")||!strcmp(v,"zero_page")||!strcmp(v,"larger_residue")) {
+   csw.data_residue=!strcmp(v,"larger_residue")?64-header:0;
+   model_reply.residue=csw.data_residue;
+   model_reply.data_bytes=!strcmp(v,"zero_short")?header-1:!strcmp(v,"zero_header")?header:total;
+   if(!strcmp(v,"zero_header"))b[ten?1:0]=header-(ten?2:1);
+   model_reply.checks=31;
+   model_reply.sample_length=model_reply.data_bytes>16?16:model_reply.data_bytes;
+   memcpy(model_reply.sample,owned,model_reply.sample_length);
+  }
+  if(!strcmp(v,"missing_record"))snapshot_missing=true;
+  if(!strcmp(v,"record_tag"))model_reply.tag++;
+  if(!strcmp(v,"record_opcode"))model_reply.opcode^=1;
+  if(!strcmp(v,"record_reason"))model_reply.reason=8;
+  if(!strcmp(v,"record_stage"))model_reply.stage=2;
+  if(!strcmp(v,"record_event"))model_reply.event=1;
+  if(!strcmp(v,"record_actual"))model_reply.actual=12;
+  if(!strcmp(v,"record_expected"))model_reply.expected=64;
+  if(!strcmp(v,"record_endpoint"))model_reply.endpoint=2;
+  if(!strcmp(v,"record_endpoint_pair"))model_reply.expected_endpoint=0x82;
+  if(!strcmp(v,"record_checks"))model_reply.checks=29;
+  if(!strcmp(v,"record_status"))model_reply.csw_status=1;
+  if(!strcmp(v,"record_residue"))model_reply.residue++;
+  if(!strcmp(v,"record_count"))model_reply.data_bytes=65;
+  if(!strcmp(v,"failed_count")){csw.status=model_reply.csw_status=1;model_reply.data_bytes=0;}
   if(!strcmp(v,"mismatch")){
    model_reply.reason=8;model_reply.data_bytes=header;model_reply.residue=0;
    model_reply.csw_status=0;model_reply.checks=31;model_reply.sample_length=header;
@@ -294,7 +318,10 @@ int main(int argc,char**argv)
    bool follow=true;
    if(!strcmp(v,"on"))want="on";
    if(!strcmp(v,"status"))want="s1";
-   if(!strcmp(v,"short"))want="short";
+   if(!strcmp(v,"short")||!strcmp(v,"zero_short"))want="short";
+   if(!strcmp(v,"zero_header"))want="page";
+   if(!strcmp(v,"larger_residue"))want="length";
+   if(!strcmp(v,"missing_record")||!strncmp(v,"record_",7)||!strcmp(v,"failed_count")){want="reply";follow=false;}
    if(!strcmp(v,"empty")||!strcmp(v,"page")||!strcmp(v,"spf"))want="page";
    if(!strcmp(v,"length")||!strcmp(v,"total_small")||!strcmp(v,"page_short")||!strcmp(v,"page_long"))want="length";
    if(!strcmp(v,"descriptor")||!strcmp(v,"desc_odd")||!strcmp(v,"media")||!strcmp(v,"longlba"))want="header";

@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory(prefix='pm-usb-sync-') as d:
     for mode in ('fixed','field','unit','deferred','validbit','descriptor','desc_deferred','short','short_header','advertised','format','status','phase','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','detach','reject','skip_ready','skip_tag'):
         run(tmp/'adapter','write','sense_'+mode);count+=1
     for prefix in ('cache_','cache6_'):
-        for mode in ('off','on','ps','mismatch','block','padded','status','phase','short','empty','length','total_small','descriptor','desc_odd','media','page','spf','page_short','page_long','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','disconnect','reject'):
+        for mode in ('off','on','ps','zero_header','zero_short','zero_page','larger_residue','missing_record','record_tag','record_opcode','record_reason','record_stage','record_event','record_actual','record_expected','record_endpoint','record_endpoint_pair','record_checks','record_status','record_residue','record_count','failed_count','mismatch','block','padded','status','phase','short','empty','length','total_small','descriptor','desc_odd','media','page','spf','page_short','page_long','signature','tag','residue','userdata','cbw','pointer','device','null','timeout','disconnect','reject'):
             run(tmp/'adapter','write',prefix+mode);count+=1
     for mode in ('cache_skip_ready','cache_skip_tag','cache_longlba'):
         run(tmp/'adapter','write',mode);count+=1

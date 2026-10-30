@@ -136,3 +136,5 @@ write-through mode unless configured otherwise. An assumption must remain visibl
 it cannot be presented as a device-reported WCE=0. I have not enabled that fallback
 or relaxed the current write guard. Independent device comparison and persistence
 tests remain necessary before a RW release. [Linux cache defaults](https://github.com/torvalds/linux/blob/d89e1d186ec9271bf78e62771779e9fc03bf0fc3/drivers/scsi/sd.c#L3071-L3082).
+
+The [bounded short-reply follow-up](USB-SHORT-MODE.md) is now built and host-tested; hardware validation is pending.

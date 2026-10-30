@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-29",
+  "status": "Bounded short MODE SENSE reply handling built and host-tested; hardware pending; unknown-cache writes remain blocked",
+  "branch": "codex/usb-sync-lifetime",
+  "firmware_base_commit": "19516d51b0935a634a700a734ee12534cbcbe4a2",
+  "candidate_artifacts_sha256": {
+    "picomem.bin": "3401c5e28cc21880de75e0ec100b85ab4d5748fb175b7e577cceaca9e07a17cb",
+    "picomem.elf": "c75768df3def31060bab7c1ccbec7ab2c093f09d656e280eb3285fa052b88a26",
+    "picomem.elf.map": "184a89d7c4046e00c6bafb63b8f2e36a9546699640ae51fe480fcbba3db1e38f",
+    "picomem.uf2": "87d8ed87e5b671314da7e639614a3d36c64a7bdb6e68475899326d8026b51cc6"
+  },
+  "source_sha256": {
+    "src/USB_Host_Driver/msc/usb-checked.c": "929bc48780ea80d95890f43cd2064f1fd2ead3b0dfd38f32006d6fa014f41c0a",
+    "src/USB_Host_Driver/msc/usb-checked.h": "fd5566777520efc25b20481a98949ac556be1fa9dd0198e970399a2c58f67705",
+    "src/pm_cmd.cpp": "8ef0d0e8e92c4aae993b156916737188f128a1868301747360ccd6eee9752667",
+    "src/lib/tinyusb/src/class/msc/msc_host.c": "153306be8c0c1bd53f4e3d13648d607761b53160169528d58fc0878fbb2aaa7a",
+    "src/lib/tinyusb/src/class/msc/msc_host.h": "3878ccfb4251c079b5fc14647f2269c2cb9156f8d6081617c799b07ee042a85b",
+    "src/CMakeLists.txt": "816af3f3d24b709fbd0f1374d62febc2e2eabafa2abb35234a21200a89aafb36",
+    "tools/patches/tinyusb-0.19-checked-msc.patch": "7a8d7a8671c119a09216fb522d629cc628aa8a975d6a189f03c56ea36d500a43",
+    "tools/prepare-lfn-deps.py": "a385a31ef9edf3374021d7e642d09ed9c3dda1ae0045a6f2be04993a5039eb8d",
+    "tools/tests/usb-sync/msc-test.c": "cd949d197c3e621857b03105f080eafb6260d336ef43108db584c678414cc010",
+    "tools/tests/usb-sync/adapter-test.c": "7ed9977a34c122da9eb8ef6f987d06391c8bb21f171f9f84d0216d897300510e",
+    "tools/tests/usb-sync/fatfs-test.c": "4f22eb5e9cc697f104cfb327b628ffc6ae39141a9c62e8a51a0c1e400455cdb0",
+    "tools/tests/usb-sync/test.py": "9d78145f10a6aec1da3cfd291d7f23e19b2ad564615c00437a52ae1492ee491b"
+  },
+  "installed_firmware_sha256": "48b56652948bacb28ce6988cbdc07799e189de8b9aa04dfbff6bd2752c5cd4b7",
+  "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+  "new_kernel_required": false,
+  "changes": "Successful exact MODE SENSE(6/10) cache queries use min(actual DATA bytes, allocation minus bounded residue) for parsing; preserve raw CSW and count mismatch evidence; require matching terminal record. Failed queries retain agreement checks; sector I/O, REQUEST SENSE and write quarantine unchanged.",
+  "tests": {
+    "actual_tinyusb_cases": 19256,
+    "adapter_scenarios": 191,
+    "fatfs_mount_fat32_scenarios": 5,
+    "legacy_usb_cases": 14,
+    "asan_ubsan": "passed",
+    "arm_build": "passed",
+    "core0_stack_reserved": 4096,
+    "core1_stack_reserved": 2048,
+    "runtime_fault_path_peak": "unmeasured",
+    "option_off_uf2_unchanged": true,
+    "hardware": "pending; candidate not flashed"
+  },
+  "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
+  "memory": {
+    "flash_bytes": 4809136,
+    "ram_bytes": 381500,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "comparison_media": [
+    {
+      "model": "Kingston DataTraveler",
+      "capacity": "1 GB",
+      "filesystem": "FAT32"
+    },
+    {
+      "model": "SanDisk Cruzer Mini",
+      "capacity": "512 MB",
+      "filesystem": "FAT32",
+      "source": "user reported; device not yet inspected"
+    }
+  ],
+  "preserve_existing_media_files": true,
+  "upstream_pr_changed": false
+}
