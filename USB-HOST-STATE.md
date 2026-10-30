@@ -1,7 +1,7 @@
 # Native USB controller state diagnostic
 
 I built this follow-up to the [SanDisk pending status reply](USB-TIMEOUT-STAGE.md#ppc512-result--30-october-2026).
-**Builds and host tests pass; hardware testing is pending. Read/write release remains blocked.**
+**Builds and host tests pass. The PPC512 snapshot below captured the pending receive. Read/write release remains blocked.**
 
 ## Why this diagnostic
 
@@ -83,3 +83,47 @@ a read-only mount, and confirm a fresh directory name is absent. I will remount
 read/write and make one guarded mkdir attempt. I will save native output, the
 full USB/controller status and a screenshot, then unmount. A fault ends writes
 for that session; existing media files are preserved.
+
+## PPC512 controller result — 30 October 2026
+
+The full recovery backup and firmware both passed readback verification. The first
+ELKS query already detected a USB disk; exact insertion timing was not confirmed.
+Read-only mounting and all three saved SanDisk SHA256 baselines passed. A fresh
+`PMHC1030` name was absent. One guarded mkdir after read/write remount failed:
+
+```text
+?USB fault op=35 f=6 s=255 r=0 d=0
+USB timeout op=35 tag=2381 stage=3 submit=1
+USB pending ep=81 want=13 deadline_ms=2000
+USB last stage=1 event=0 ep=01 got=31
+HCD slot=1 act=1 rem=0 got=0 sof=1168/1119 v=1
+HCD bc=0000740d ec=a8000200 poll=00000006 addr=00010001 sc=20008604
+HCD ss=50000205 bs=00000000 irq=00000000 ie=0000047b sm=00000009
+```
+
+The endpoint and polling slot are enabled, and the receive buffer is available,
+not full, with a length of 13 and no STALL flag. Software still marks the transfer
+active with zero received bytes. `rem=0` is expected after the 13 bytes have been
+assigned to the hardware buffer; it does not mean successful completion.
+The frame samples differ by 1999 modulo 2048. No buffer-completion flag or masked
+interrupt is pending in this snapshot. Internal state 9 is retained raw; I am not
+assigning it an undocumented symbolic meaning.
+
+This is consistent with a status receive still waiting, and makes a stopped
+controller or an already-pending completion interrupt less likely. The global
+ACK and NAK flags are set, but are latched and cannot establish repeated NAKs on
+this command. This is not proof of an unsupported opcode, cache state or device
+failure. No physical bus trace was taken.
+
+I made no retry and unmounted USB successfully. ELKS remains running with only
+its root filesystem mounted. No sector write was submitted according to the
+pre-write guard and `d=0`; no post-fault file readback was attempted. Initial stack
+readings were 1824/4096 firmware and 418/700 kernel, with zero flags/invalid samples;
+the fault-path peak remains unmeasured.
+
+The next experiment should observe late status completion for a separate bounded
+window while retaining write quarantine and the normal two-second deadline.
+It must not retry the command, enable writes or reset the controller. This is a
+proposed next experiment, not a behavior change in this tested build.
+
+[Actual PPC512 screenshot](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/screenshots/ppc512-sandisk-host-state-20261030.png).
