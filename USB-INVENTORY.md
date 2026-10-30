@@ -85,9 +85,16 @@ USB afterward and left ELKS running with both sticks connected. There was no
 write attempt or reported USB fault.
 
 The first query already had devices present, so an empty inventory was not
-observed on hardware. Four-device, fault-rendering and removal-while-mounted
-cases were not tested on the PPC in this run. Simultaneous
+observed on hardware. Four-device and removal-while-mounted cases were not tested
+on the PPC in this run. Simultaneous
 storage mounts remain unsupported. This reporting result does not resolve the
 previous cache-flush failures. The upstream metadata-only draft PR is unchanged.
 
 [Actual PPC screenshot and result](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#hub-inventory-hardware-result).
+
+
+A subsequent [SanDisk flush test through the hub](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#sandisk-powered-hub-flush-result)
+also verified fault rendering: the hub count remained visible, the hub detail row
+was omitted, and all six original timeout/controller lines fitted. The underlying
+flush still timed out, with no completion recorded during the additional
+30-second observation. USB was safely unmounted without retry.
