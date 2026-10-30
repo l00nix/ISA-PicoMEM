@@ -46,6 +46,18 @@ bool tuh_msc_get_checked_reply(uint8_t d,uint32_t t,tuh_msc_checked_fault_t *out
  if(snapshot_max)memset(out,255,sizeof(*out));
  return true;
 }
+static bool pending_missing, pending_max;
+static unsigned pending_calls;
+bool tuh_msc_get_pending(uint8_t d,uint32_t t,tuh_msc_pending_t *out)
+{
+ assert(d==1&&t==bus.tag&&out);pending_calls++;
+ if(pending_missing)return false;
+ *out=(tuh_msc_pending_t){.tag=t,.opcode=bus.command[0],.stage=3,
+  .endpoint=0x81,.expected=13,.submitted=1,.last_stage=1,
+  .last_event=0,.last_endpoint=2,.last_actual=31};
+ if(pending_max)memset(out,255,sizeof(*out));
+ return true;
+}
 /* Exercise actual status appender at every capacity, with malformed input and
  * maximum-value formatting. It must append atomically and never submit USB. */
 static void test_transport_report(void)
@@ -260,6 +272,13 @@ int main(int argc,char**argv)
  assert(argc==3);mode=argv[2];
  if(!strcmp(mode,"report")){
   bus.tag=UINT32_MAX;test_transport_report();
+  device=1;tag=bus.tag;pending_missing=true;timeout_transport_report();
+  assert(strstr(transport_lines[0],"snapshot=unavailable"));test_transport_report();
+  pending_missing=false;pending_max=true;timeout_transport_report();
+  assert(!strcmp(transport_lines[0],"USB timeout op=ff tag=4294967295 stage=255 submit=255"));
+  assert(!strcmp(transport_lines[1],"USB pending ep=ff want=4294967295 deadline_ms=2000"));
+  assert(!strcmp(transport_lines[2],"USB last stage=255 event=255 ep=ff got=4294967295"));
+  test_transport_report();pending_max=false;memset(transport_lines,0,sizeof(transport_lines));
   snapshot_missing=true;cache_transport_report(1,bus.tag);assert(!transport_lines[0][0]);
   snapshot_missing=false;snapshot_max=true;cache_transport_report(1,bus.tag);
   assert(!strcmp(transport_lines[0],"USB query op=ff tag=4294967295 why=255 stage=255 event=255"));
@@ -380,6 +399,11 @@ int main(int argc,char**argv)
    assert(strstr(transport_lines[0],"why=8 stage=3 event=0"));
    assert(strstr(transport_lines[2],"ck=1f s=0 r=0"));
    assert(strstr(transport_lines[2],!strcmp(mode,"cache_mismatch")?"n=8 b=0006000000000000":"n=4 b=03000000"));
+  } else if(!strcmp(mode,"timeout")||!strcmp(mode,"write_timeout")) {
+   assert(pending_calls==1);
+   assert(strstr(transport_lines[0],"stage=3 submit=1"));
+   assert(!strcmp(transport_lines[1],"USB pending ep=81 want=13 deadline_ms=2000"));
+   assert(!strcmp(transport_lines[2],"USB last stage=1 event=0 ep=02 got=31"));
   } else assert(!!transport_lines[0][0]==!!reply_calls);
   test_transport_report();
   char first_transport[sizeof(transport_lines)];memcpy(first_transport,transport_lines,sizeof(first_transport));

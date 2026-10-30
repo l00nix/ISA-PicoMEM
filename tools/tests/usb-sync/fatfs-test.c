@@ -13,6 +13,8 @@ static char status_text[80];
 static tuh_msc_checked_fault_t model_reply;
 bool tuh_msc_get_checked_reply(uint8_t d,uint32_t t,tuh_msc_checked_fault_t *out)
 {if(d!=1||!out||t!=model_reply.tag)return false;*out=model_reply;return true;}
+bool tuh_msc_get_pending(uint8_t d,uint32_t t,tuh_msc_pending_t *out)
+{(void)d;(void)t;(void)out;return false;}
 void usb_set_status(uint8_t d,const char *fmt,...){
  assert(d==1);va_list a;va_start(a,fmt);int n=vsnprintf(status_text,sizeof(status_text),fmt,a);va_end(a);assert(n>0&&n+3<80);
 }

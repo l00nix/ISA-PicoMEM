@@ -1,8 +1,8 @@
 diff --git a/src/class/msc/msc_host.c b/src/class/msc/msc_host.c
-index eb69ae400..6262de6a5 100644
+index eb69ae400..02f53c121 100644
 --- a/src/class/msc/msc_host.c
 +++ b/src/class/msc/msc_host.c
-@@ -61,6 +61,12 @@ typedef struct {
+@@ -61,6 +61,13 @@ typedef struct {
  
    // SCSI command data
    uint8_t stage;
@@ -10,12 +10,36 @@ index eb69ae400..6262de6a5 100644
 +  uint32_t pm_data_bytes; /* Actual DATA length for bounded diagnostic queries. */
 +  tuh_msc_checked_fault_t pm_fault;
 +  bool pm_recorded;
++  tuh_msc_pending_t pm_pending;
 +  uint8_t pm_sample_length, pm_sample[16];
 +#endif
    void* buffer;
    tuh_msc_complete_cb_t complete_cb;
    uintptr_t complete_arg;
-@@ -150,6 +156,13 @@ bool tuh_msc_scsi_command(uint8_t daddr, msc_cbw_t const* cbw, void* data,
+@@ -87,6 +94,22 @@ TU_ATTR_ALWAYS_INLINE static inline msch_epbuf_t* get_epbuf(uint8_t daddr) {
+   return &_msch_epbuf[daddr - 1];
+ }
+ 
++#ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
++static bool pm_msch_submit(uint8_t dev, uint8_t ep, uint8_t *buffer, uint16_t length) {
++  msch_interface_t *itf = get_itf(dev);
++  tuh_msc_pending_t *p = &itf->pm_pending;
++  p->tag = get_epbuf(dev)->cbw.tag;
++  p->opcode = get_epbuf(dev)->cbw.command[0];
++  p->stage = itf->stage;
++  p->endpoint = ep;
++  p->expected = length;
++  p->submitted = usbh_edpt_xfer(dev, ep, buffer, length) ? 1 : 2;
++  return p->submitted == 1;
++}
++#else
++#define pm_msch_submit usbh_edpt_xfer
++#endif
++
+ //--------------------------------------------------------------------+
+ // Weak stubs: invoked if no strong implementation is available
+ //--------------------------------------------------------------------+
+@@ -150,8 +173,17 @@ bool tuh_msc_scsi_command(uint8_t daddr, msc_cbw_t const* cbw, void* data,
    p_msc->complete_cb = complete_cb;
    p_msc->complete_arg = arg;
    p_msc->stage = MSC_STAGE_CMD;
@@ -23,13 +47,18 @@ index eb69ae400..6262de6a5 100644
 +  p_msc->pm_data_bytes = 0;
 +  tu_memclr(&p_msc->pm_fault, sizeof(p_msc->pm_fault));
 +  p_msc->pm_recorded = false;
++  tu_memclr(&p_msc->pm_pending, sizeof(p_msc->pm_pending));
++  p_msc->pm_pending.last_event = 255;
 +  p_msc->pm_sample_length = 0;
 +  tu_memclr(p_msc->pm_sample, sizeof(p_msc->pm_sample));
 +#endif
  
-   if (!usbh_edpt_xfer(daddr, p_msc->ep_out, (uint8_t*) &epbuf->cbw, sizeof(msc_cbw_t))) {
+-  if (!usbh_edpt_xfer(daddr, p_msc->ep_out, (uint8_t*) &epbuf->cbw, sizeof(msc_cbw_t))) {
++  if (!pm_msch_submit(daddr, p_msc->ep_out, (uint8_t*) &epbuf->cbw, sizeof(msc_cbw_t))) {
      usbh_edpt_release(daddr, p_msc->ep_out);
-@@ -321,12 +334,148 @@ void msch_close(uint8_t dev_addr) {
+     return false;
+   }
+@@ -321,12 +353,162 @@ void msch_close(uint8_t dev_addr) {
    tu_memclr(p_msc, sizeof(msch_interface_t));
  }
  
@@ -37,6 +66,16 @@ index eb69ae400..6262de6a5 100644
 +/* Fail the application command instead of accepting stale/partial CSW bytes.
 + * No automatic reset or retry: the PicoMEM adapter quarantines its owned buffer.
 + */
++bool tuh_msc_get_pending(uint8_t dev_addr, uint32_t tag, tuh_msc_pending_t *out) {
++  if (!dev_addr || dev_addr > CFG_TUH_DEVICE_MAX || !out) return false;
++  msch_interface_t const *itf = get_itf(dev_addr);
++  if (!itf->configured || !itf->mounted || itf->stage == MSC_STAGE_IDLE ||
++      itf->pm_recorded || itf->pm_pending.tag != tag ||
++      itf->pm_pending.stage != itf->stage) return false;
++  *out = itf->pm_pending;
++  return true;
++}
++
 +bool tuh_msc_get_checked_reply(uint8_t dev_addr, uint32_t tag,
 +                               tuh_msc_checked_fault_t *out) {
 +  if (!dev_addr || dev_addr > CFG_TUH_DEVICE_MAX || !out) return false;
@@ -143,6 +182,10 @@ index eb69ae400..6262de6a5 100644
 +                        ((cbw->cmd_len == 6 && !memcmp(cbw->command, cache6, 16)) ||
 +                         (cbw->cmd_len == 10 && !memcmp(cbw->command, cache10, 16)));
 +  if (p_msc->stage == MSC_STAGE_IDLE) return false; /* Late duplicate event. */
++  p_msc->pm_pending.last_stage = p_msc->stage;
++  p_msc->pm_pending.last_event = event;
++  p_msc->pm_pending.last_endpoint = ep_addr;
++  p_msc->pm_pending.last_actual = xferred_bytes;
 +  if (event != XFER_RESULT_SUCCESS ||
 +      (p_msc->stage == MSC_STAGE_CMD &&
 +       (ep_addr != p_msc->ep_out || xferred_bytes != sizeof(msc_cbw_t))) ||
@@ -178,11 +221,29 @@ index eb69ae400..6262de6a5 100644
    switch (p_msc->stage) {
      case MSC_STAGE_CMD:
        // Must be Command Block
+@@ -335,7 +517,7 @@ bool msch_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32
+         // Data stage if any
+         p_msc->stage = MSC_STAGE_DATA;
+         uint8_t const ep_data = (cbw->dir & TUSB_DIR_IN_MASK) ? p_msc->ep_in : p_msc->ep_out;
+-        TU_ASSERT(usbh_edpt_xfer(dev_addr, ep_data, p_msc->buffer, (uint16_t) cbw->total_bytes));
++        TU_ASSERT(pm_msch_submit(dev_addr, ep_data, p_msc->buffer, (uint16_t) cbw->total_bytes));
+         break;
+       }
+ 
+@@ -344,7 +526,7 @@ bool msch_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32
+     case MSC_STAGE_DATA:
+       // Status stage
+       p_msc->stage = MSC_STAGE_STATUS;
+-      TU_ASSERT(usbh_edpt_xfer(dev_addr, p_msc->ep_in, (uint8_t*) csw, (uint16_t) sizeof(msc_csw_t)));
++      TU_ASSERT(pm_msch_submit(dev_addr, p_msc->ep_in, (uint8_t*) csw, (uint16_t) sizeof(msc_csw_t)));
+       break;
+ 
+     case MSC_STAGE_STATUS:
 diff --git a/src/class/msc/msc_host.h b/src/class/msc/msc_host.h
-index b5fd55547..563f8c6fb 100644
+index b5fd55547..96280a5f9 100644
 --- a/src/class/msc/msc_host.h
 +++ b/src/class/msc/msc_host.h
-@@ -48,6 +48,30 @@ typedef struct {
+@@ -48,6 +48,40 @@ typedef struct {
    uintptr_t user_arg;   // user argument
  }tuh_msc_complete_data_t;
  
@@ -201,6 +262,16 @@ index b5fd55547..563f8c6fb 100644
 +  uint8_t reason, csw_status, checks, opcode;
 +  uint8_t sample_length, sample[16]; /* Accepted MODE SENSE DATA prefix only. */
 +} tuh_msc_checked_fault_t;
++/* Pending command snapshot, core-0 only, no USB work or CSW/data-buffer reads.
++ * submitted: 0 not attempted, 1 accepted by host driver, 2 rejected.
++ * last_stage=0 and last_event=255 mean no completion callback yet.
++ * Accepted submission does not prove a physical bus transaction occurred. */
++typedef struct {
++  uint32_t tag, expected, last_actual;
++  uint8_t opcode, stage, endpoint, submitted;
++  uint8_t last_stage, last_event, last_endpoint;
++} tuh_msc_pending_t;
++bool tuh_msc_get_pending(uint8_t dev_addr, uint32_t tag, tuh_msc_pending_t *out);
 +/* No USB work; core-0 only. Valid until the next command or device close. */
 +bool tuh_msc_get_checked_fault(uint8_t dev_addr, uint32_t tag,
 +                               tuh_msc_checked_fault_t *out);

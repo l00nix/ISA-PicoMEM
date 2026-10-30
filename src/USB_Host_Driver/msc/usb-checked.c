@@ -83,6 +83,28 @@ static bool cache_waiting, cache_completed;
  * Three <=79-byte lines fit CMD_USB_Status's existing eight-line/1024B client.
  */
 static char transport_lines[3][80];
+/* Freeze a timeout snapshot once. Later USB callbacks cannot rewrite it. */
+static void timeout_transport_report(void)
+{
+    tuh_msc_pending_t p;
+    if (!tuh_msc_get_pending(device, tag, &p)) {
+        snprintf(transport_lines[0], sizeof(transport_lines[0]),
+                 "USB timeout op=%02x tag=%lu snapshot=unavailable",
+                 request.command[0], (unsigned long)tag);
+        strcpy(transport_lines[1], "USB pending stage unknown");
+        strcpy(transport_lines[2], "USB no validated completion at deadline");
+        return;
+    }
+    snprintf(transport_lines[0], sizeof(transport_lines[0]),
+             "USB timeout op=%02x tag=%lu stage=%u submit=%u",
+             p.opcode, (unsigned long)p.tag, p.stage, p.submitted);
+    snprintf(transport_lines[1], sizeof(transport_lines[1]),
+             "USB pending ep=%02x want=%lu deadline_ms=2000",
+             p.endpoint, (unsigned long)p.expected);
+    snprintf(transport_lines[2], sizeof(transport_lines[2]),
+             "USB last stage=%u event=%u ep=%02x got=%lu",
+             p.last_stage, p.last_event, p.last_endpoint, (unsigned long)p.last_actual);
+}
 static void cache_transport_report(uint8_t dev, uint32_t request_tag)
 {
     tuh_msc_checked_fault_t f;
@@ -389,7 +411,10 @@ static DRESULT command(uint8_t opcode, uint32_t sector)
         tuh_task();
         if (!waiting || failed) break; /* A completed command wins at deadline. */
         if (!present()) fault(FAULT_DETACH, 255, 0);
-        else if ((int32_t)(time_us_32() - deadline) >= 0) fault(FAULT_TIMEOUT, 255, 0);
+        else if ((int32_t)(time_us_32() - deadline) >= 0) {
+            timeout_transport_report();
+            fault(FAULT_TIMEOUT, 255, 0);
+        }
     }
     if (sense_pending) collect_sense();
     return failed ? RES_ERROR : RES_OK;

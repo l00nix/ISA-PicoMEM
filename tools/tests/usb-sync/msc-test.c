@@ -6,9 +6,10 @@
 #include <string.h>
 #include "../../../src/lib/tinyusb/src/class/msc/msc_host.c"
 static unsigned completed,submitted;
+static bool reject_submit;
 static uint8_t status, data[512];
 bool usbh_edpt_xfer_with_callback(uint8_t d,uint8_t e,uint8_t*b,uint16_t n,tuh_xfer_cb_t c,uintptr_t u)
-{(void)d;(void)e;(void)b;(void)n;(void)c;(void)u;submitted++;return true;}
+{(void)d;(void)e;(void)b;(void)n;(void)c;(void)u;submitted++;return !reject_submit;}
 bool usbh_edpt_claim(uint8_t d,uint8_t ep){assert(d==1&&ep==2);return true;}
 bool usbh_edpt_release(uint8_t d,uint8_t ep){assert(d==1&&ep==2);return true;}
 static bool done(uint8_t d,const tuh_msc_complete_data_t*r)
@@ -197,5 +198,45 @@ int main(void)
  assert(submitted==1);
  assert(!tuh_msc_get_checked_reply(1,456,&f));
  assert(!get_itf(1)->pm_sample_length);tests++;
+ /* Pending snapshots observe each queued stage and rejected submissions.
+  * Getters never submit, inspect CSW, or complete the request. */
+ for(unsigned reject=0;reject<=3;reject++)for(unsigned dir=0;dir<3;dir++) {
+  setup(MSC_STAGE_CMD);q=get_epbuf(1)->cbw;q.command[0]=dir?0x28:0x35;
+  q.total_bytes=dir?512:0;q.dir=dir==2?0x80:0;
+  reject_submit=reject==1;
+  bool ok=tuh_msc_scsi_command(1,&q,dir?data:NULL,done,123);
+  assert(ok==(reject!=1));
+  tuh_msc_pending_t p,before;
+  assert(tuh_msc_get_pending(1,123,&p));
+  assert(p.tag==123&&p.opcode==q.command[0]&&p.stage==1&&p.endpoint==2);
+  assert(p.expected==31&&p.submitted==(reject==1?2:1));
+  assert(p.last_stage==0&&p.last_event==255&&p.last_actual==0);
+  if(ok){
+   reject_submit=reject==2;
+   assert(msch_xfer_cb(1,2,XFER_RESULT_SUCCESS,31)==(reject!=2));
+   assert(tuh_msc_get_pending(1,123,&p));
+   assert(p.stage==(dir?2:3)&&p.expected==(dir?512:13));
+   assert(p.endpoint==(dir==1?2:0x81)&&p.submitted==(reject==2?2:1));
+   assert(p.last_stage==1&&p.last_event==0&&p.last_endpoint==2&&p.last_actual==31);
+   if(dir&&reject!=2){
+    reject_submit=reject==3;
+    assert(msch_xfer_cb(1,dir==1?2:0x81,XFER_RESULT_SUCCESS,512)==(reject!=3));
+    assert(tuh_msc_get_pending(1,123,&p));
+    assert(p.stage==3&&p.endpoint==0x81&&p.expected==13&&p.submitted==(reject==3?2:1));
+    assert(p.last_stage==2&&p.last_actual==512);
+   }
+  }
+  unsigned count=submitted;before=p;
+  memset(&get_epbuf(1)->csw,0xaa,sizeof(msc_csw_t)); /* stale CSW ignored */
+  assert(tuh_msc_get_pending(1,123,&p)&&!memcmp(&p,&before,sizeof(p)));
+  assert(!tuh_msc_get_pending(0,123,&p)&&!tuh_msc_get_pending(255,123,&p));
+  assert(!tuh_msc_get_pending(1,124,&p)&&!tuh_msc_get_pending(1,123,NULL));
+  get_itf(1)->mounted=false;assert(!tuh_msc_get_pending(1,123,&p));get_itf(1)->mounted=true;
+  get_itf(1)->configured=false;assert(!tuh_msc_get_pending(1,123,&p));get_itf(1)->configured=true;
+  get_itf(1)->pm_recorded=true;assert(!tuh_msc_get_pending(1,123,&p));get_itf(1)->pm_recorded=false;
+  get_itf(1)->stage=MSC_STAGE_IDLE;assert(!tuh_msc_get_pending(1,123,&p));
+  assert(!completed&&submitted==count);tests++;
+ }
+ reject_submit=false;
  printf("PASS actual TinyUSB MSC: %u completion/length/status cases\n",tests);return 0;
 }
