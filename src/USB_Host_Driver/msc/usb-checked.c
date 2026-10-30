@@ -101,7 +101,7 @@ static const char *cache_result[2] = {"-", "-"};
 static unsigned cache_index, cache_length;
 static bool cache_waiting, cache_completed;
 #ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
-static bool probe_attempted;
+static bool probe_attempted, probe_timeout_snapshot;
 static unsigned probe_lines;
 static char probe_report[8][80];
 static unsigned probe_lengths[2], probe_actual[2], probe_status[2], probe_residue[2];
@@ -111,7 +111,7 @@ static uint8_t probe_bytes[2][CACHE_BYTES];
 static void cache_probe_reset(void)
 {
     /* Only clean attach/detach clears evidence; failed sessions stay latched. */
-    probe_attempted = false;
+    probe_attempted = probe_timeout_snapshot = false;
     probe_lines = 0;
     memset(probe_report, 0, sizeof(probe_report));
     memset(probe_lengths, 0, sizeof(probe_lengths));
@@ -164,14 +164,14 @@ static void host_transport_report(const tuh_msc_pending_t *p)
         (unsigned long)h->sie_status, (unsigned long)h->buffer_status,
         (unsigned long)h->ints, (unsigned long)h->inte, (unsigned long)h->sm_state);
 }
-static void timeout_transport_report(void)
+static void timeout_transport_report(uint8_t opcode)
 {
     tuh_msc_pending_t p;
     memset(transport_lines, 0, sizeof(transport_lines));
     if (!tuh_msc_get_pending(device, tag, &p)) {
         snprintf(transport_lines[0], sizeof(transport_lines[0]),
                  "USB timeout op=%02x tag=%lu snapshot=unavailable",
-                 request.command[0], (unsigned long)tag);
+                 opcode, (unsigned long)tag);
         strcpy(transport_lines[1], "USB pending stage unknown");
         strcpy(transport_lines[2], "USB no validated completion at deadline");
         return;
@@ -349,6 +349,12 @@ static bool collect_cache(unsigned index)
         if (!present()) { cache_result[index] = "detach"; break; }
         if ((int32_t)(time_us_32() - deadline) >= 0) {
             cache_result[index] = "time";
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+            /* Read-only getter: freeze the matching pending transfer and HCD
+             * registers at the deadline. Never service, retry or reset USB. */
+            timeout_transport_report(q->command[0]);
+            probe_timeout_snapshot = true;
+#endif
             break;
         }
     }
@@ -388,6 +394,18 @@ static void cache_probe(void)
     }
     probe_wce = state; /* The cached-status function supplies current I/O state. */
     unsigned line = 1;
+    if (probe_timeout_snapshot) {
+        /* At most eight rows: summary, result/policy, and six transport rows.
+         * Copy now so later faults/callbacks cannot alter the saved snapshot.
+         * No unvalidated DATA bytes or fabricated CSW status are displayed. */
+        snprintf(probe_report[line++], 80,
+            "MODE10 %s MODE6 %s; USB writes blocked; no flush sent.",
+            cache_result[1], cache_result[0]);
+        for (unsigned i = 0; i < 6 && transport_lines[i][0]; ++i)
+            memcpy(probe_report[line++], transport_lines[i], 80);
+        probe_lines = line;
+        return;
+    }
     for (int i = 1; i >= 0; --i) {
         snprintf(probe_report[line++], 80,
             "MODE%d %s actual=%u used=%u status=%u residue=%u", i ? 10 : 6,
@@ -614,7 +632,7 @@ static DRESULT command(uint8_t opcode, uint32_t sector)
         if (!waiting || failed) break; /* A completed command wins at deadline. */
         if (!present()) fault(FAULT_DETACH, 255, 0);
         else if ((int32_t)(time_us_32() - deadline) >= 0) {
-            timeout_transport_report();
+            timeout_transport_report(request.command[0]);
             fault(FAULT_TIMEOUT, 255, 0);
             if (opcode == 0x35 && !dirty && !sync_supported) {
                 late_device = device;

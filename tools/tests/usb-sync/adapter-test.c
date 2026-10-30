@@ -276,9 +276,9 @@ int main(int argc,char**argv)
  assert(argc==3);mode=argv[2];
  if(!strcmp(mode,"report")){
   bus.tag=UINT32_MAX;test_transport_report();
-  device=1;tag=bus.tag;pending_missing=true;timeout_transport_report();
+  device=1;tag=bus.tag;pending_missing=true;timeout_transport_report(request.command[0]);
   assert(strstr(transport_lines[0],"snapshot=unavailable"));test_transport_report();
-  pending_missing=false;pending_max=true;timeout_transport_report();
+  pending_missing=false;pending_max=true;timeout_transport_report(request.command[0]);
   assert(!strcmp(transport_lines[0],"USB timeout op=ff tag=4294967295 stage=255 submit=255"));
   assert(!strcmp(transport_lines[1],"USB pending ep=ff want=4294967295 deadline_ms=2000"));
   assert(!strcmp(transport_lines[2],"USB last stage=255 event=255 ep=ff got=4294967295"));

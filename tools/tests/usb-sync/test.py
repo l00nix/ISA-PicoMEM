@@ -13,10 +13,10 @@ with tempfile.TemporaryDirectory(prefix='pm-usb-sync-') as d:
     for name in ('msc','adapter','late','wire','probe'):
         run(cc,*flags,kit/(name+'-test.c'),gc,'-o',tmp/name)
     run(tmp/'msc')
-    for variant in range(32):
+    for variant in range(40):
         for device in (1,4):
             run(tmp/'probe',str(variant),str(device))
-    print('PASS 64 read-only cache-probe scenarios with ASan/UBSan')
+    print('PASS 80 read-only cache-probe scenarios with ASan/UBSan')
     for scenario in range(18):
         for device in (1,4):
             for seed in ('0','0x12345670'):
@@ -51,14 +51,14 @@ with tempfile.TemporaryDirectory(prefix='pm-usb-sync-') as d:
             assert (tmp/'readback').read_bytes()==bytes((i*13+7)&255 for i in range(1537))
     print('PASS five real FatFs/mount scenarios and independent long-name/content readback')
     run(cc,*flags,kit/'probe-fatfs-test.c',fat/'ff.c',fat/'ffunicode.c',gc,'-o',tmp/'probe-fatfs')
-    for variant in (0,1,2,20):
+    for variant in (0,1,2,20,32,33,34,35,36,37,38,39):
         img=tmp/('probe-'+str(variant)+'.img')
         with img.open('wb') as f:f.truncate(64*1024*1024)
         run('mformat','-i',img,'-F','::')
         before=hashlib.sha256(img.read_bytes()).hexdigest()
         run(tmp/'probe-fatfs',img,str(variant))
         assert hashlib.sha256(img.read_bytes()).hexdigest()==before
-    print('PASS four probe FAT32 scenarios; full images unchanged')
+    print('PASS twelve probe FAT32 scenarios; full images unchanged')
 
 
 run("python3",kit/"host-state-test.py")

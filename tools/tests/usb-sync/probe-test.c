@@ -16,16 +16,25 @@ static uint8_t ep_now, stage_now, op_now, *buffer_now;
 static unsigned length_now;
 static char last_fault[80];
 static FILE *probe_image;
-static bool read_fault;
+static bool read_fault, release_timeout;
+static unsigned host_snapshots, task_calls;
 enum { OFF, ON, HEADER, ZERO_HEADER, SHORT, BLOCK, LONG_BLOCK, ODD_BLOCK,
        MEDIUM, SPF, WRONG_PAGE, PAGE_SHORT, PAGE_LONG, ADVERTISED_LONG,
        BAD_STATUS, PHASE, BAD_TAG, BAD_SIGNATURE, SHORT_CSW, STALL, TIMEOUT,
        DETACH, REJECT, SHORT_MODE10, MODE6_OFF, MODE6_ON, MODE6_BAD,
-       BAD_RESIDUE, BAD_COUNT, ZERO_SHORT, PADDED, FULL_UNKNOWN, CASE_COUNT };
+       BAD_RESIDUE, BAD_COUNT, ZERO_SHORT, PADDED, FULL_UNKNOWN, TIME_DATA, TIME_STATUS, TIME6_CMD, TIME6_DATA,
+       TIME6_STATUS, NO_HOST, NO_PENDING, MAX_HOST, CASE_COUNT };
+static bool timed_variant(void)
+{return variant==TIMEOUT || (variant>=TIME_DATA && variant<CASE_COUNT);}
+static unsigned timeout_stage(void)
+{return variant==TIME_DATA||variant==TIME6_DATA ? MSC_STAGE_DATA :
+        variant==TIME_STATUS||variant==TIME6_STATUS ? MSC_STAGE_STATUS : MSC_STAGE_CMD;}
+static bool mode6_timeout(void)
+{return variant>=TIME6_CMD&&variant<=TIME6_STATUS;}
 static bool unsafe(void)
 {
  return variant==PHASE || variant==BAD_TAG || variant==BAD_SIGNATURE ||
-        variant==SHORT_CSW || variant==STALL || variant==TIMEOUT ||
+        variant==SHORT_CSW || variant==STALL || timed_variant() ||
         variant==DETACH || variant==REJECT || variant==MODE6_BAD ||
         variant==BAD_RESIDUE || variant==BAD_COUNT;
 }
@@ -39,7 +48,12 @@ bool usbh_edpt_claim(uint8_t d,uint8_t ep)
 bool usbh_edpt_release(uint8_t d,uint8_t ep)
 {assert(d==target&&ep==1);claimed=false;return true;}
 bool pm_usb_host_snapshot(uint8_t d,uint8_t ep,pm_usb_host_state_t *s)
-{assert(d==target&&(ep==1||ep==0x81));memset(s,0,sizeof(*s));return true;}
+{
+ assert(d==target&&(ep==1||ep==0x81));host_snapshots++;
+ memset(s,variant==MAX_HOST?255:0,sizeof(*s));
+ if(variant!=MAX_HOST){s->frame=host_snapshots;s->buffer_ctrl=0x12345678;}
+ return variant!=NO_HOST;
+}
 static void le32(uint8_t *p,uint32_t n)
 {for(unsigned i=0;i<4;i++)p[i]=(uint8_t)(n>>(8*i));}
 bool usbh_edpt_xfer_with_callback(uint8_t d,uint8_t ep,uint8_t *b,uint16_t n,
@@ -72,7 +86,7 @@ static void mode_reply(uint8_t *b,unsigned *n)
 {
  bool ten=op_now==0x5a;unsigned h=ten?8:4,offset=h,total=h+20;
  memset(b,0,64);reply_status=reply_residue=0;
- bool fallback=variant==MODE6_OFF||variant==MODE6_ON||variant==MODE6_BAD||variant==SHORT_MODE10;
+ bool fallback=variant==MODE6_OFF||variant==MODE6_ON||variant==MODE6_BAD||variant==SHORT_MODE10||mode6_timeout();
  if(variant==BLOCK){offset+=8;total+=8;b[ten?7:3]=8;}
  b[offset]=8;b[offset+1]=18;b[offset+2]=(variant==ON||(!ten&&variant==MODE6_ON))?4:0;
  if(variant==HEADER||variant==ZERO_HEADER||variant==ZERO_SHORT||(fallback&&ten))total=h;
@@ -102,9 +116,13 @@ static void mode_reply(uint8_t *b,unsigned *n)
 }
 void tuh_task_ext(uint32_t timeout_ms,bool in_isr)
 {
- (void)timeout_ms;assert(!in_isr&&pending);
+ (void)timeout_ms;assert(!in_isr&&pending);task_calls++;
  bool query=op_now!=0x28;
- if(query&&variant==TIMEOUT)return;
+ if(query&&timed_variant()&&!release_timeout&&stage_now==timeout_stage()&&
+    (!mode6_timeout()||op_now==0x1a)) {
+  if(variant==NO_PENDING)get_itf(target)->pm_pending.tag=0;
+  return;
+ }
  if(query&&variant==DETACH){get_itf(target)->mounted=false;pm_usb_detach(target);return;}
  unsigned n=length_now;uint8_t *b=buffer_now,ep=ep_now,stage=stage_now;
  xfer_result_t event=XFER_RESULT_SUCCESS;
@@ -133,11 +151,30 @@ void tuh_task_ext(uint32_t timeout_ms,bool in_isr)
 }
 static void check_report(void)
 {
- char frame[1026],original[1026];unsigned before=commands;
+ char frame[1026],original[1026];unsigned before=commands, snaps=host_snapshots, tasks=task_calls;
  assert(pm_usb_cache_probe_status(frame,1024));
  assert((unsigned char)frame[0]<=8 && (unsigned char)frame[0]>=4);
  unsigned end=1;
  for(unsigned i=0;i<(unsigned char)frame[0];i++) {assert(strlen(frame+end)<80);end+=strlen(frame+end)+1;}
+ if(timed_variant()) {
+  const char *row[8];unsigned pos=1;
+  for(unsigned k=0;k<(unsigned char)frame[0];k++){row[k]=frame+pos;pos+=strlen(row[k])+1;}
+  assert(strstr(row[1],"USB writes blocked; no flush sent."));
+  assert(strstr(row[1],mode6_timeout()?"MODE6 time":"MODE10 time MODE6 -"));
+  assert(strstr(row[2],mode6_timeout()?"op=1a":"op=5a"));
+  if(variant==NO_PENDING) {
+   assert((unsigned char)frame[0]==5&&strstr(row[2],"snapshot=unavailable"));
+  } else {
+   char expected[80];snprintf(expected,80,"stage=%u submit=1",timeout_stage());
+   assert(strstr(row[2],expected));
+   snprintf(expected,80,"ep=%02x want=%u",timeout_stage()==MSC_STAGE_CMD?1:0x81,
+            timeout_stage()==MSC_STAGE_CMD?31:timeout_stage()==MSC_STAGE_DATA?64:13);
+   assert(strstr(row[3],expected));
+   if(variant==NO_HOST)assert((unsigned char)frame[0]==5);
+   else {assert((unsigned char)frame[0]==8);assert(strstr(row[5],"HCD slot="));
+         assert(strstr(row[6],variant==MAX_HOST?"bc=ffffffff":"bc=12345678"));}
+  }
+ }
  assert(strstr(frame+1,unsafe()?"I/O=quarantined":"I/O=read-only"));
  const char *state=variant==ON||variant==MODE6_ON?"enabled":
   variant==OFF||variant==BLOCK||variant==PADDED||variant==MODE6_OFF||variant==SHORT_MODE10?"disabled":"unknown";
@@ -150,6 +187,7 @@ static void check_report(void)
   else assert(!memcmp(frame+end,original+end,sizeof(frame)-end));
  }
  assert(!pm_usb_cache_probe_status(NULL,1024)&&commands==before);
+ assert(host_snapshots==snaps&&task_calls==tasks);
 }
 int main(int argc,char **argv)
 {
@@ -175,6 +213,13 @@ int main(int argc,char **argv)
   char prior[1024];memset(prior,0,sizeof(prior));assert(pm_usb_cache_probe_status(prior,sizeof(prior)));
   memset(frame,0,sizeof(frame));cache_waiting=false;
   (void)cache_complete(target,NULL);
+  if(timed_variant()) {
+   release_timeout=true;unsigned n=0;
+   while(pending){assert(n++<3);tuh_task_ext(0,false);}
+   assert(commands==before);
+  }
+  /* Both unrelated report buffers and later register samples may change. */
+  memset(transport_lines,'Z',sizeof(transport_lines));
   assert(pm_usb_cache_probe_status(frame,sizeof(frame))&&!memcmp(prior,frame,1024));
  } else {
   assert(usb_disk_read(data,12,1)==RES_OK);
