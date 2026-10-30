@@ -80,13 +80,32 @@ static unsigned cache_index, cache_length;
 static bool cache_waiting, cache_completed;
 
 /* Latest completed cache-query text, independent of device close/late callbacks.
- * Three <=79-byte lines fit CMD_USB_Status's existing eight-line/1024B client.
+ * Three base lines plus three optional HCD lines, each <=79 bytes.
+ * Appending respects CMD_USB_Status's existing eight-line/1024B client.
  */
-static char transport_lines[3][80];
+static char transport_lines[6][80];
 /* Freeze a timeout snapshot once. Later USB callbacks cannot rewrite it. */
+static void host_transport_report(const tuh_msc_pending_t *p)
+{
+    if (!p->host_valid) return;
+    const pm_usb_host_state_t *h = &p->host;
+    snprintf(transport_lines[3], sizeof(transport_lines[3]),
+        "HCD slot=%u act=%u rem=%u got=%u sof=%lu/%lu v=%u",
+        h->slot, h->active, h->remaining, h->transferred,
+        (unsigned long)p->host_start_frame, (unsigned long)h->frame, p->host_start_valid);
+    snprintf(transport_lines[4], sizeof(transport_lines[4]),
+        "HCD bc=%08lx ec=%08lx poll=%08lx addr=%08lx sc=%08lx",
+        (unsigned long)h->buffer_ctrl, (unsigned long)h->endpoint_ctrl,
+        (unsigned long)h->poll_ctrl, (unsigned long)h->address_ctrl, (unsigned long)h->sie_ctrl);
+    snprintf(transport_lines[5], sizeof(transport_lines[5]),
+        "HCD ss=%08lx bs=%08lx irq=%08lx ie=%08lx sm=%08lx",
+        (unsigned long)h->sie_status, (unsigned long)h->buffer_status,
+        (unsigned long)h->ints, (unsigned long)h->inte, (unsigned long)h->sm_state);
+}
 static void timeout_transport_report(void)
 {
     tuh_msc_pending_t p;
+    memset(transport_lines, 0, sizeof(transport_lines));
     if (!tuh_msc_get_pending(device, tag, &p)) {
         snprintf(transport_lines[0], sizeof(transport_lines[0]),
                  "USB timeout op=%02x tag=%lu snapshot=unavailable",
@@ -104,12 +123,14 @@ static void timeout_transport_report(void)
     snprintf(transport_lines[2], sizeof(transport_lines[2]),
              "USB last stage=%u event=%u ep=%02x got=%lu",
              p.last_stage, p.last_event, p.last_endpoint, (unsigned long)p.last_actual);
+    host_transport_report(&p);
 }
 static void cache_transport_report(uint8_t dev, uint32_t request_tag)
 {
     tuh_msc_checked_fault_t f;
     char hex[33];
     if (!tuh_msc_get_checked_reply(dev, request_tag, &f)) return;
+    memset(transport_lines, 0, sizeof(transport_lines));
     unsigned n = f.sample_length;
     if (n > sizeof(f.sample)) n = sizeof(f.sample);
     for (unsigned i = 0; i < n; ++i) {
@@ -134,7 +155,7 @@ static void cache_transport_report(uint8_t dev, uint32_t request_tag)
 void pm_usb_append_transport_status(char *buffer, size_t capacity)
 {
     /* Validate the existing count and NUL boundaries before any mutation.
-     * Append all three or none, never truncate or exceed the client limits. */
+     * Base three lines are atomic. Add all three HCD lines only if they fit. */
     if (!buffer || !capacity || !transport_lines[0][0]) return;
     unsigned count = (unsigned char)buffer[0];
     if (count > 5) return;
@@ -147,12 +168,18 @@ void pm_usb_append_transport_status(char *buffer, size_t capacity)
     }
     for (unsigned i = 0; i < 3; ++i) needed += strlen(transport_lines[i]) + 1;
     if (needed > capacity - end) return;
-    for (unsigned i = 0; i < 3; ++i) {
+    unsigned lines = 3;
+    if (count <= 2 && transport_lines[3][0]) {
+        size_t extra = 0;
+        for (unsigned i = 3; i < 6; ++i) extra += strlen(transport_lines[i]) + 1;
+        if (extra <= capacity - end - needed) lines = 6;
+    }
+    for (unsigned i = 0; i < lines; ++i) {
         size_t length = strlen(transport_lines[i]) + 1;
         memcpy(buffer + end, transport_lines[i], length);
         end += length;
     }
-    buffer[0] = (char)(count + 3);
+    buffer[0] = (char)(count + lines);
 }
 
 static bool cache_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)

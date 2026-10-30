@@ -54,7 +54,9 @@ bool tuh_msc_get_pending(uint8_t d,uint32_t t,tuh_msc_pending_t *out)
  if(pending_missing)return false;
  *out=(tuh_msc_pending_t){.tag=t,.opcode=bus.command[0],.stage=3,
   .endpoint=0x81,.expected=13,.submitted=1,.last_stage=1,
-  .last_event=0,.last_endpoint=2,.last_actual=31};
+  .last_event=0,.last_endpoint=2,.last_actual=31,
+  .host_valid=1,.host_start_valid=1,.host_start_frame=12,
+  .host={.frame=2012,.slot=1,.active=1,.buffer_ctrl=0x440d,.endpoint_ctrl=0xa0080080}};
  if(pending_max)memset(out,255,sizeof(*out));
  return true;
 }
@@ -73,16 +75,18 @@ static void test_transport_report(void)
   bool append=cap>=end&&count<=5&&transport_lines[0][0]&&cap-end>=need;
   if(!append)assert(!memcmp(b,original,sizeof(b)));
   else{
-   assert((unsigned char)b[0]==count+3);
+   size_t extra=0;for(unsigned i=3;i<6;i++)extra+=strlen(transport_lines[i])+1;
+   unsigned lines=count<=2&&transport_lines[3][0]&&cap-end-need>=extra?6:3;
+   assert((unsigned char)b[0]==count+lines);
    assert(!memcmp(b+1,original+1,end-1));
-   for(unsigned i=0;i<3;i++){assert(!strcmp(b+end,transport_lines[i]));end+=strlen(b+end)+1;}
+   for(unsigned i=0;i<lines;i++){assert(!strcmp(b+end,transport_lines[i]));end+=strlen(b+end)+1;}
    assert(!memcmp(b+end,original+end,sizeof(b)-end));
   }
  }
  memset(b,'X',sizeof(b));b[0]=1;memcpy(original,b,sizeof(b));
  pm_usb_append_transport_status(b,1024);assert(!memcmp(b,original,sizeof(b)));
  pm_usb_append_transport_status(NULL,1024);
- for(unsigned i=0;i<3;i++)assert(strlen(transport_lines[i])<80);
+ for(unsigned i=0;i<6;i++)assert(strlen(transport_lines[i])<80);
  assert(!memcmp(saved,transport_lines,sizeof(saved))&&submissions==before);
 }
 bool tuh_msc_scsi_command(uint8_t d,const msc_cbw_t*c,void*b,tuh_msc_complete_cb_t cb,uintptr_t u)
@@ -278,6 +282,9 @@ int main(int argc,char**argv)
   assert(!strcmp(transport_lines[0],"USB timeout op=ff tag=4294967295 stage=255 submit=255"));
   assert(!strcmp(transport_lines[1],"USB pending ep=ff want=4294967295 deadline_ms=2000"));
   assert(!strcmp(transport_lines[2],"USB last stage=255 event=255 ep=ff got=4294967295"));
+  assert(!strcmp(transport_lines[3],"HCD slot=255 act=255 rem=65535 got=65535 sof=4294967295/4294967295 v=255"));
+  assert(!strcmp(transport_lines[4],"HCD bc=ffffffff ec=ffffffff poll=ffffffff addr=ffffffff sc=ffffffff"));
+  assert(!strcmp(transport_lines[5],"HCD ss=ffffffff bs=ffffffff irq=ffffffff ie=ffffffff sm=ffffffff"));
   test_transport_report();pending_max=false;memset(transport_lines,0,sizeof(transport_lines));
   snapshot_missing=true;cache_transport_report(1,bus.tag);assert(!transport_lines[0][0]);
   snapshot_missing=false;snapshot_max=true;cache_transport_report(1,bus.tag);
@@ -401,6 +408,7 @@ int main(int argc,char**argv)
    assert(strstr(transport_lines[2],!strcmp(mode,"cache_mismatch")?"n=8 b=0006000000000000":"n=4 b=03000000"));
   } else if(!strcmp(mode,"timeout")||!strcmp(mode,"write_timeout")) {
    assert(pending_calls==1);
+   assert(!strcmp(transport_lines[3],"HCD slot=1 act=1 rem=0 got=0 sof=12/2012 v=1"));
    assert(strstr(transport_lines[0],"stage=3 submit=1"));
    assert(!strcmp(transport_lines[1],"USB pending ep=81 want=13 deadline_ms=2000"));
    assert(!strcmp(transport_lines[2],"USB last stage=1 event=0 ep=02 got=31"));

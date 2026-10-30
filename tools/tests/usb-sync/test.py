@@ -39,3 +39,5 @@ with tempfile.TemporaryDirectory(prefix='pm-usb-sync-') as d:
             run('mcopy','-i',img,'::Checked USB cache payload.txt',tmp/'readback')
             assert (tmp/'readback').read_bytes()==bytes((i*13+7)&255 for i in range(1537))
     print('PASS five real FatFs/mount scenarios and independent long-name/content readback')
+
+run("python3",kit/"host-state-test.py")

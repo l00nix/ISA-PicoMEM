@@ -12,6 +12,13 @@ bool usbh_edpt_xfer_with_callback(uint8_t d,uint8_t e,uint8_t*b,uint16_t n,tuh_x
 {(void)d;(void)e;(void)b;(void)n;(void)c;(void)u;submitted++;return !reject_submit;}
 bool usbh_edpt_claim(uint8_t d,uint8_t ep){assert(d==1&&ep==2);return true;}
 bool usbh_edpt_release(uint8_t d,uint8_t ep){assert(d==1&&ep==2);return true;}
+static bool host_missing;
+bool pm_usb_host_snapshot(uint8_t d,uint8_t ep,pm_usb_host_state_t *out)
+{
+ assert(d==1&&out&&(ep==2||ep==0x81));
+ if(host_missing)return false;
+ memset(out,0,sizeof(*out));out->frame=123;return true;
+}
 static bool done(uint8_t d,const tuh_msc_complete_data_t*r)
 {
  assert(d==1);completed++;status=r->csw->status;
@@ -210,6 +217,10 @@ int main(void)
   assert(tuh_msc_get_pending(1,123,&p));
   assert(p.tag==123&&p.opcode==q.command[0]&&p.stage==1&&p.endpoint==2);
   assert(p.expected==31&&p.submitted==(reject==1?2:1));
+  assert(p.host_valid&&p.host.frame==123&&p.host_start_valid==(reject!=1));
+  assert(p.host_start_frame==(reject!=1?123:0));
+  host_missing=true;assert(tuh_msc_get_pending(1,123,&p)&&!p.host_valid);
+  host_missing=false;assert(tuh_msc_get_pending(1,123,&p));
   assert(p.last_stage==0&&p.last_event==255&&p.last_actual==0);
   if(ok){
    reject_submit=reject==2;
