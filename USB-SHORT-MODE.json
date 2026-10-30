@@ -1,6 +1,6 @@
 {
   "date": "2026-10-29",
-  "status": "Bounded short MODE SENSE reply handling built and host-tested; hardware pending; unknown-cache writes remain blocked",
+  "status": "PPC512 Kingston short MODE replies handled; both cache pages absent; writes blocked; SanDisk comparison pending",
   "branch": "codex/usb-sync-lifetime",
   "firmware_base_commit": "19516d51b0935a634a700a734ee12534cbcbe4a2",
   "candidate_artifacts_sha256": {
@@ -23,7 +23,7 @@
     "tools/tests/usb-sync/fatfs-test.c": "4f22eb5e9cc697f104cfb327b628ffc6ae39141a9c62e8a51a0c1e400455cdb0",
     "tools/tests/usb-sync/test.py": "9d78145f10a6aec1da3cfd291d7f23e19b2ad564615c00437a52ae1492ee491b"
   },
-  "installed_firmware_sha256": "48b56652948bacb28ce6988cbdc07799e189de8b9aa04dfbff6bd2752c5cd4b7",
+  "installed_firmware_sha256": "87d8ed87e5b671314da7e639614a3d36c64a7bdb6e68475899326d8026b51cc6",
   "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
   "new_kernel_required": false,
   "changes": "Successful exact MODE SENSE(6/10) cache queries use min(actual DATA bytes, allocation minus bounded residue) for parsing; preserve raw CSW and count mismatch evidence; require matching terminal record. Failed queries retain agreement checks; sector I/O, REQUEST SENSE and write quarantine unchanged.",
@@ -38,7 +38,7 @@
     "core1_stack_reserved": 2048,
     "runtime_fault_path_peak": "unmeasured",
     "option_off_uf2_unchanged": true,
-    "hardware": "pending; candidate not flashed"
+    "hardware": "Kingston completed; eight files verified; guarded mkdir rejected; SanDisk pending"
   },
   "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
   "memory": {
@@ -61,5 +61,94 @@
     }
   ],
   "preserve_existing_media_files": true,
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "previous_installed_firmware_sha256": "48b56652948bacb28ce6988cbdc07799e189de8b9aa04dfbff6bd2752c5cd4b7",
+  "firmware_commit": "8aa90460dddbb63261d4317e48f2ac0a0f1d077e",
+  "kingston_results": {
+    "firmware_commit": "8aa90460dddbb63261d4317e48f2ac0a0f1d077e",
+    "firmware_readback_verified": true,
+    "backup_sha256": "47f344fe787870e14141c98a95b98bf325d770bd723cd42f7d93207737401bc3",
+    "full_backup_readback_verified": true,
+    "usb_detected_without_reconnect": true,
+    "retained_files_verified": {
+      "RN28A/Renamed Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d771c7166dc97e2f4e636afb5d4df8f57865c48ddf5095af12cd3b2153576a47"
+      },
+      "RN28A/Keep This File.txt": {
+        "bytes": 4,
+        "sha256": "6ca7ea2feefc88ecb5ed6356ed963f47dc9137f82526fdd25d618ea626d0803f"
+      },
+      "LFN Create 28/Created Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d45c5305b8dd48af787ecfd75dcbedbdf6fca682fef83824fb39c5372eafd441"
+      },
+      "LFN Create 28/Nested Long Directory/Child With Spaces.txt": {
+        "bytes": 1025,
+        "sha256": "984c5645a309dbba620349f0efaa17f16288cf8181d91b13efcdc2d9f6dbd2d4"
+      },
+      "LFN Create 28/N26-xxxxxxxxxxxxxxxxxx.txt": {
+        "bytes": 73,
+        "sha256": "fd13e0d898623dfd06aa25d9aeb4e414079f7a2a05be7a5c4ea188a834d7e773"
+      },
+      "PMBEN29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMDIAG29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMERR29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      }
+    },
+    "fresh_test_name_absent": true,
+    "single_attempt": "mkdir /mnt/usb/PMSH1029",
+    "exit_status": 1,
+    "native_error": "/mnt/usb/PMSH1029: cannot create directory",
+    "write_retries": 0,
+    "cache_results": {
+      "mode6": "page",
+      "mode10": "page"
+    },
+    "latest_query": {
+      "opcode": "1a",
+      "tag": 428,
+      "reason": 0,
+      "stage": 3,
+      "event": 0,
+      "endpoint": "81",
+      "expected_endpoint": "81",
+      "actual_csw_bytes": 13,
+      "expected_csw_bytes": 13,
+      "data_bytes": 4,
+      "checks": "1f",
+      "raw_status": 0,
+      "raw_residue": 0,
+      "prefix_hex": "03000000"
+    },
+    "interpretation": "Both MODE queries completed without a caching page. Latest MODE6 returned a four-byte header. Cache state unknown; original unsupported-flush fault and write quarantine remain. First MODE10 raw report was replaced by latest query, so only its page classification is retained for this run.",
+    "sector_write_submission": "None inferred from guard control flow and dirty=0, not measured by USB bus trace",
+    "initial_stack": {
+      "firmware_used": 2052,
+      "firmware_reserved": 4096,
+      "kernel_used": 418,
+      "kernel_reserved": 700,
+      "flags": 0,
+      "invalid": 0,
+      "samples": 5486
+    },
+    "fault_path_stack_peak": "not measured",
+    "usb_unmounted": true,
+    "sd_unmounted": true,
+    "screenshot": {
+      "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount/pmstat, explicitly saved native error, summary from verified baseline",
+      "video_sha256": "1d9b82db729a4176f8b5e2577d9d10cb2fea75b1e7826e98a1b26776a688fbe3",
+      "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+      "png_sha256": "14221b6b50b3811e85b50b7a87ea35bb5124b71578fe238e17816947462f8111"
+    },
+    "sandisk_test": "pending; requires fresh MCU session and media swap"
+  }
 }

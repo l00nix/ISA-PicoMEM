@@ -1,8 +1,8 @@
 # Bounded short MODE SENSE replies
 
 I built this follow-up to the [PPC512 header-only response](USB-MODE10-PREFIX.md#mode-sense10-first-ppc512-result).
-**Build and host tests pass; hardware testing is pending. This does not enable
-writes on the Kingston or establish that its write cache is disabled.**
+**The Kingston hardware test passed the short-reply handling checks; both cache
+pages are absent and writes remain blocked. The SanDisk comparison is pending.**
 
 ## What changes
 
@@ -79,3 +79,38 @@ writes in this candidate. Before a release I need an explicit policy distinguish
 verified flush support, reported cache-disabled behavior, and unknown cache state.
 Any compatibility assumption must be visible and separately tested, never silently
 presented as a guarantee that data survives power loss.
+
+## Kingston short-reply hardware result
+
+I flashed source `8aa9046` after a verified full recovery backup. The new firmware
+passed readback verification, and all eight retained files passed full-content
+checks through a read-only mount. One guarded `mkdir /mnt/usb/PMSH1029` returned
+exit 1 with `cannot create directory`; I did not retry.
+
+```text
+?USB fault op=35 f=2 s=1 r=0 d=0 rs=70:5/20/00 n=18 c6=page c10=page
+USB query op=1a tag=428 why=0 stage=3 event=0
+USB xfer ep=81/81 got=13 want=13 data=4
+USB CSW ck=1f s=0 r=0 n=4 b=03000000
+```
+
+Both cache queries completed and parsed as missing caching page. The latest
+MODE SENSE(6) reply is a four-byte header, `03 00 00 00`. Its zero residue still
+disagrees with the actual count, but the bounded short-reply path now handles it
+without inventing a phase error or parsing beyond received bytes. The MODE10
+classification is retained as `page`; its raw report was replaced by the latest
+query, so this run does not independently retain its exact bytes.
+
+**The Kingston's write-cache state remains unknown and writes remain blocked.**
+The unsupported initial flush fault remains visible. No sector write was submitted
+according to the pre-write guard and `dirty=0`, rather than a physical bus trace.
+Initial measured stack usage was 2052/4096 firmware bytes and 418/700 kernel bytes,
+with zero flags/invalid counts. Fault-path peak remains unmeasured. USB unmounted
+successfully; SD stayed unmounted.
+
+[PPC512 screenshot](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/screenshots/ppc512-usb-short-mode-20261029.png)
+
+This screenshot is rendered from actual PPC video memory, with live cached status
+and mount output. The saved native mkdir error is explicitly labelled and was not
+rerun. The SanDisk comparison is pending; it will use a fresh MCU session and a
+new test directory, preserving existing files.
