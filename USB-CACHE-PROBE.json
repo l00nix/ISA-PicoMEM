@@ -26,7 +26,7 @@
     "probe_off_arm_build": "passed",
     "stack_layout": "core0 4096 bytes; core1 2048; no overlap",
     "runtime_stack_peak": "unmeasured",
-    "hardware": "Generic drive through powered hub: MODE SENSE(10) timeout; I/O quarantined; safely unmounted"
+    "hardware": "Generic drive through powered hub and directly: MODE SENSE(10) timeout in both; WCE unknown; I/O quarantined; safely unmounted"
   },
   "memory": {
     "flash_bytes": 4814120,
@@ -66,5 +66,6 @@
   "new_kernel_required": false,
   "new_elks_utility_required": false,
   "upstream_pr_changed": false,
-  "hardware_record": "USB-CACHE-PROBE-HARDWARE.json"
+  "hardware_record": "USB-CACHE-PROBE-HARDWARE.json",
+  "direct_hardware_record": "USB-CACHE-PROBE-DIRECT.json"
 }

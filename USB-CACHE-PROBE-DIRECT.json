@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-30",
+  "firmware_source": "0a0df934552efd372403f2ff59c8e595ec5ddc78",
+  "firmware_uf2_sha256": "9efdf727f07528ae0559df9fa9ed37cc8cd704385f85def5d0d57648b9cc9d9f",
+  "hardware": "Amstrad PPC512 / PicoMEM2 RP2350",
+  "topology": {
+    "disk": "0011:7788",
+    "selected_address": 1,
+    "hubs": 0,
+    "connection": "root 0 selected"
+  },
+  "baseline": {
+    "files": 9,
+    "bytes": 913703,
+    "comparison": "Whole-file SHA256 matches prior Mac baseline before probe",
+    "test_name_absent": true,
+    "prior_hub_test_directory_absent": true
+  },
+  "trigger": {
+    "command": "mkdir /mnt/usb/PMCD1030",
+    "attempts": 1,
+    "exit_status": 1
+  },
+  "result": {
+    "wce": "unknown",
+    "io": "quarantined",
+    "mode10": {
+      "result": "time",
+      "actual": 255,
+      "used": 0,
+      "status": 255,
+      "residue": 255
+    },
+    "mode6": "not attempted",
+    "sentinel_255": "Unavailable metadata, not validated status",
+    "reported_bytes": 214
+  },
+  "policy": {
+    "sector_writes": "Blocked in verified candidate; no physical bus trace",
+    "flush": "Not issued by this diagnostic candidate",
+    "retry": false
+  },
+  "cleanup": {
+    "usb_unmounted": true,
+    "sd_unmounted": true,
+    "elks_running": true,
+    "post_fault_media_readback": false
+  },
+  "limits": [
+    "No validated MODE SENSE response was obtained; this does not establish whether the drive has a write cache.",
+    "The same timeout occurs without the hub; the hub is not required to reproduce it. This does not distinguish drive behavior from the controller/transport implementation.",
+    "PicoMEM must restart before further USB I/O."
+  ],
+  "comparison": "Same verified firmware and generic drive as powered-hub probe; user-confirmed physical cold restart; hub removed",
+  "capture": {
+    "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount and cached pmstat, explicitly labelled saved native mkdir error",
+    "video_sha256": "630032cebdcec996491b440bd2be2a9c220450819d996cb6f4a34cf1788c5429",
+    "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+    "png_sha256": "1f9a0b1451dcfe1987df325bdd7d2643ed3857f200b741a3b067c3f6811b25e1"
+  }
+}

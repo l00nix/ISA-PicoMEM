@@ -129,3 +129,29 @@ same firmware and drive connected directly to PicoMEM after a fresh restart.
 
 [Hardware record](USB-CACHE-PROBE-HARDWARE.json) ·
 [Actual PPC screen capture](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/screenshots/ppc512-usb-cache-probe-20261030.png).
+
+
+## Direct-connection comparison
+
+After a user-confirmed physical power cycle, I repeated the test with the same
+firmware and generic drive connected directly to PicoMEM. Inventory confirmed
+`0011:7788` selected at address 1 on root port 0 and **zero hubs**. The read-only
+mount succeeded, all nine files (913,703 bytes) again matched the Mac baseline,
+and neither the previous hub-test directory nor the new `PMCD1030` directory existed.
+
+Exactly one `mkdir /mnt/usb/PMCD1030` attempt reproduced the same result:
+MODE SENSE(10) timed out, WCE remained unknown, USB I/O was quarantined, and
+MODE SENSE(6) was not attempted. USB unmounted successfully. I made no retry and
+no post-fault media reads; ELKS remains running.
+
+The hub is therefore not required to reproduce this timeout. This does not yet
+distinguish drive behavior from the host-controller or transport implementation.
+The current probe report does not reveal which transfer stage stalled. Source
+review shows that `collect_cache()` records `time` without collecting the pending
+transfer snapshot used by the main command timeout path. The next diagnostic
+should preserve that snapshot for the cache query and expose the command, data
+or status stage, with controller details, without sending another USB command or
+changing the write policy. This reporting gap is not itself evidence of the cause.
+
+[Direct hardware record](USB-CACHE-PROBE-DIRECT.json) ·
+[Actual PPC screen capture](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/screenshots/ppc512-usb-cache-direct-20261030.png).
