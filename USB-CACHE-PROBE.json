@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-30",
+  "status": "Built and host-tested; NOT FLASHED or hardware validated",
+  "firmware_commit": "0a0df934552efd372403f2ff59c8e595ec5ddc78",
+  "branch": "codex/usb-sync-lifetime",
+  "candidate_artifacts_sha256": {
+    "picomem.bin": "48256acf63add1f82d7072e17493b09a0da1bedf3da18436087af3b6d92ca6bf",
+    "picomem.uf2": "9efdf727f07528ae0559df9fa9ed37cc8cd704385f85def5d0d57648b9cc9d9f",
+    "picomem.elf": "16cd82b3ba7684895c5ce2f9970f26a5ab4deccdcfacc84e4a32fad565df0f49",
+    "picomem.elf.map": "38f21f2bf028aa39557a900f2423da19abe0a1795bc5cb630db00440fccb4fbf"
+  },
+  "tests": {
+    "cache_probe_scenarios": 64,
+    "cache_probe_fat32_scenarios": 4,
+    "probe_images": "Full SHA256 unchanged after mkdir attempts",
+    "joined_adapter_tinyusb_cases": 72,
+    "actual_tinyusb_cases": 19268,
+    "adapter_cases": 191,
+    "late_observation_cases": 43,
+    "existing_fatfs_cases": 5,
+    "native_getter_models": 1320,
+    "inventory_cases": 10845,
+    "elks_status_cases": 30,
+    "sanitizers": "ASan and UBSan",
+    "arm_build": "passed",
+    "probe_off_arm_build": "passed",
+    "stack_layout": "core0 4096 bytes; core1 2048; no overlap",
+    "runtime_stack_peak": "unmeasured",
+    "hardware": "pending"
+  },
+  "memory": {
+    "flash_bytes": 4814120,
+    "ram_bytes": 382904,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "off_comparison": {
+    "new_bytes": 4813600,
+    "baseline_bytes": 4813600,
+    "new_sha256": "6bb0f544caaf0fa05ad06eae2dab7d905ff26302bd8908310a567ad9d42478cf",
+    "baseline_sha256": "8662c276bd6f58ae51d37c52e35e23ad2a6001ec9615264e63685ba021b89230",
+    "differing_bytes": 5,
+    "first_differences": [
+      343673,
+      343675,
+      343676,
+      343678,
+      343679
+    ],
+    "new_context": "25643a25640000000031343a32323a3031000000000a2a2a2a20",
+    "old_context": "25643a25640000000031303a35363a3232000000000a2a2a2a20",
+    "interpretation": "Only five bytes of RTC time differ: 10:56:22 to14:22:01; all other BIN bytes identical to installed inventory baseline."
+  },
+  "policy": {
+    "default_off": true,
+    "trigger": "First valid attempted USB sector write per clean attachment",
+    "queries": "MODE SENSE(10), then at most one MODE SENSE(6) only after validated completion with unknown cache state",
+    "flush_commands": 0,
+    "sector_writes": 0,
+    "mode_select_commands": 0,
+    "cache_results": "enabled / disabled / unknown; none authorizes writes",
+    "unknown_policy": "USB writes blocked; ambiguous transport quarantines all USB I/O until MCU restart",
+    "status_command": "Existing CMD61 / pmstat --usb; cached counted-NUL strings, <=8 rows and 79 chars per row",
+    "raw_bytes": "At most64 per variant, only min(actual, allocation-residue) bytes after validated completion; snapshots are independent of live transfer buffers"
+  },
+  "new_kernel_required": false,
+  "new_elks_utility_required": false,
+  "upstream_pr_changed": false
+}

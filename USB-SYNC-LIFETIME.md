@@ -282,3 +282,12 @@ joined adapter/TinyUSB endpoint cases pass, along with the existing suites. This
 does not resolve the hardware blocker. It identifies cache-capability probing as
 the next step while retaining the write safeguards; no new firmware is required
 for the audit.
+
+
+## Read-only cache-capability candidate
+
+The default-off [cache probe](USB-CACHE-PROBE.md) runs before any flush on the
+first attempted USB write. It reports validated enabled/disabled/unknown cache
+state and bounded raw responses while blocking every USB write. Host/FAT32 tests
+and both ARM builds pass; physical validation is pending. This is a diagnostic
+candidate, not a read/write release.
