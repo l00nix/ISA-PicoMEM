@@ -2,7 +2,7 @@
 
 I built this follow-up to the [PPC512 header-only response](USB-MODE10-PREFIX.md#mode-sense10-first-ppc512-result).
 **The Kingston hardware test passed the short-reply handling checks; both cache
-pages are absent and writes remain blocked. The SanDisk comparison is pending.**
+pages are absent and writes remain blocked. The SanDisk comparison found an initial flush timeout.**
 
 ## What changes
 
@@ -54,7 +54,7 @@ write quarantine remain active, even if the query reports WCE=0.
 [Source/artifact hashes and validation manifest](USB-SHORT-MODE.json).
 No new ELKS kernel or utility is required. The upstream metadata draft PR is unchanged.
 
-## Hardware comparison plan
+## Original hardware comparison plan (results below)
 
 I will first test the Kingston DataTraveler 1 GB FAT32 after a fresh firmware backup,
 verified flash and normal boot. I will verify the eight retained files through a
@@ -69,7 +69,7 @@ identity and read-only baseline before creating a new test directory. If cache
 flush succeeds, bounded file writes will be checked byte-for-byte, followed by
 sync, remount, independent Mac FAT/content checks and power-cycle persistence.
 If it rejects flush, the same bounded sense/cache diagnostics apply and writes stop.
-The SanDisk's behavior has not yet been measured.
+The SanDisk's behavior was unmeasured when this plan was prepared; results follow below.
 
 ## Remaining release policy
 
@@ -112,5 +112,54 @@ successfully; SD stayed unmounted.
 
 This screenshot is rendered from actual PPC video memory, with live cached status
 and mount output. The saved native mkdir error is explicitly labelled and was not
-rerun. The SanDisk comparison is pending; it will use a fresh MCU session and a
-new test directory, preserving existing files.
+rerun. The completed SanDisk comparison is recorded below.
+
+## SanDisk comparison result
+
+I tested a second drive, reported as a SanDisk Cruzer Mini 512 MB FAT32. After
+booting without a USB stick and inserting it once ELKS was running, PicoMEM
+reported a fresh checked-I/O mount with no previous fault. The read-only mount
+and directory listing passed. I fully read three existing package files (8,660,
+8,720 and 35,508 bytes), saved local copies and recorded their checksums. These
+are pre-test baselines, not independent content verification or post-test checks.
+I have not published the unrelated personal filenames from the directory listing.
+
+After confirming `PMSD1029` did not exist, I remounted read/write and made one
+`mkdir /mnt/usb/PMSD1029` attempt. It failed with exit 1 and `cannot create directory`:
+
+```text
+?USB fault op=35 f=6 s=255 r=0 d=0
+```
+
+`op=35` is SYNCHRONIZE CACHE(10); `f=6` is the adapter's two-second timeout.
+`s=255` is a sentinel, not a status returned by the drive. There was no validated
+failed CSW, so REQUEST SENSE and MODE SENSE were not submitted. This does not
+establish that SanDisk rejects the opcode or has its cache enabled/disabled.
+The precise transport stage and cause of the timeout remain unknown.
+
+No sector write was submitted according to the pre-write guard and `dirty=0`
+evidence; this is not a physical bus trace. I did not retry. USB unmounted
+successfully, SD stayed unmounted, and ELKS is left running with the fault latched.
+Initial stack usage was 2136/4096 firmware bytes and 426/700 kernel bytes, with
+zero flags/invalid counts. Fault-path peak remains unmeasured.
+
+[PPC512 SanDisk screenshot](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/screenshots/ppc512-sandisk-flush-timeout-20261029.png)
+
+The screenshot uses actual PPC video memory, live mount/status output and the
+explicitly saved native error, without repeating the write.
+
+| Drive | Read-only checks | Initial cache flush | Cache-page queries | Write outcome |
+| --- | --- | --- | --- | --- |
+| Kingston DataTraveler 1 GB | Eight retained files verified | Valid failure; sense 5/20/00 | Both completed, no caching page | Blocked before sector write |
+| SanDisk Cruzer Mini 512 MB | Listing and three file baselines read | Adapter timeout; no validated CSW | Not run | Blocked before sector write |
+
+The second drive exposed a separate timeout path; it does not validate a RW
+release. Next I need bounded evidence of the flush transport stage at timeout,
+then host tests for any required recovery, alongside an explicit policy for
+unsupported flush with unknown cache state. Extending the timeout or bypassing
+flush without that evidence is not an established fix.
+
+The user also reported the PPC display-switch shortcut working again after a
+boot without the SanDisk. Its behavior after hot-plugging the drive was not
+checked. This remains an observation to investigate, not proof of a firmware,
+keyboard, power or USB-device cause. No screen-control code changed in this test.
