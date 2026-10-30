@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-30",
+  "status": "Built and host-tested; hardware inventory validation pending; RW release remains blocked",
+  "firmware_commit": "92d36d47750c6e71ee489d182bb3219bce1cc600",
+  "branch": "codex/usb-sync-lifetime",
+  "candidate_artifacts_sha256": {
+    "picomem.bin": "8662c276bd6f58ae51d37c52e35e23ad2a6001ec9615264e63685ba021b89230",
+    "picomem.elf": "fc9641fbe4f0cc8848f2e85cf55de9c8cd3b7dc6b9ad1a46e9b3a6cc37ef8f76",
+    "picomem.elf.map": "3e7cf89b93725a096076393786d795d4fa20a890d55b47d93ae7c9c6b435b0be",
+    "picomem.uf2": "a7186d7616b64447ed46b8322dcccc918b6b02c8f0caa3d9217374a5e6633f80"
+  },
+  "source_sha256": {
+    "src/USB_Host_Driver/usb-status.c": "15f351968b2eb0d76ba009c9e59ef0893ffa25dd95c11fe42ce3549c6a2dc230",
+    "src/USB_Host_driver/usb.h": "5d12ce4f8a9d84c2117223bf967c3d814284d60da5613d9004b68463853b0e4e",
+    "src/USB_Host_Driver/msc/usb-checked.c": "7945dc9f1d8e0c3e4115b0ca561a1e110c4ef3727f32e10ca19f673c701774cf",
+    "src/USB_Host_Driver/msc/usb-checked.h": "de3644295b6722c8aca3b5bc5e0c6d7b80ef7e3518ad9c2b6aa69daa580888ec",
+    "src/USB_Host_Driver2/CMakeLists.txt": "1141d9b7abb3d08ec8cad60b7760d9467c7f58b6ac831cecff0bac13e8783847",
+    "src/USB_Host_driver/CMakeLists.txt": "56418a265936228457613f896f04e1d753cd91b7be204b680f2e26f915f51122",
+    "src/pm_cmd.cpp": "fc6776ee913a711b311708cd110c27818b269b9ab0134e7b298161ae862b9f2d",
+    "tools/tests/usb-inventory/test.c": "a0b3f6f39898b4dd092e4717ad9a33d665ae39899cd1ec116bb59d971ad47332",
+    "tools/tests/usb-inventory/test.py": "91476c002432463749da8ddacc1be199216c5f12d1c548e9844243647308af52",
+    "tools/tests/usb-inventory/tusb.h": "4bb9ff0020425bbbfaf01e36ded82080fcc4b318f011c1b799088f22410530d7"
+  },
+  "tests": {
+    "inventory_asan_ubsan_cases": 10845,
+    "actual_tinyusb_cases": 19268,
+    "adapter_cases": 191,
+    "late_observation_cases": 43,
+    "native_getter_mock_register_cases": 1320,
+    "fatfs_fat32_cases": 5,
+    "elks_status_decoder_cases": 30,
+    "arm_build": "passed",
+    "disabled_feature_build": "passed",
+    "stack_map": "core 0 4096 bytes; core 1 2048 bytes; no overlap",
+    "runtime_stack_peak": "unmeasured",
+    "hardware": "pending"
+  },
+  "memory": {
+    "flash_bytes": 4813600,
+    "ram_bytes": 382088,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "new_kernel_required": false,
+  "new_elks_utility_required": false,
+  "inventory_source": "Cached TinyUSB enumeration metadata and cached adapter selection/fault only; no USB transfer, reset or task pump",
+  "limits": "Configured one hub/four downstream devices; one file-service storage volume. Eight status lines; hub detail omitted during faults to preserve prior diagnostic capacity. Multiple downstream devices can still limit optional diagnostics as before.",
+  "upstream_pr_changed": false
+}
