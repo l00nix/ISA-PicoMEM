@@ -1,6 +1,6 @@
 {
   "date": "2026-10-29",
-  "status": "MODE SENSE(10)-first and raw-prefix diagnostic built; hardware pending; RW release blocked",
+  "status": "PPC512 MODE SENSE(10) returned header only with DATA/residue mismatch; eight file readbacks passed; writes remain blocked",
   "branch": "codex/usb-sync-lifetime",
   "firmware_base_commit": "fd868c049044a352482f69052571cb3961719e4f",
   "candidate_artifacts_sha256": {
@@ -23,7 +23,7 @@
     "tools/tests/usb-sync/fatfs-test.c": "adc3284a5294fffd68e9fa9b6f4b4924232befdb39a9b064206d204df49d856f",
     "tools/tests/usb-sync/test.py": "2f36063db0af7bfe899478a466a374c80e794acea6f152d2dc83142b1839fdcd"
   },
-  "installed_firmware_sha256": "9e3bcebd0e229a3025754676eb2d2f9f6269b5aed15bcebda62b280346677106",
+  "installed_firmware_sha256": "48b56652948bacb28ce6988cbdc07799e189de8b9aa04dfbff6bd2752c5cd4b7",
   "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
   "new_kernel_required": false,
   "changes": "Try MODE SENSE(10) first, with one MODE SENSE(6) alternate only after checked completion without a usable cache page; preserve up to 16 accepted DATA bytes in a bounded cached report; no relaxed transport checks or write policy",
@@ -38,7 +38,7 @@
     "core0_stack_reserved": 4096,
     "core1_stack_reserved": 2048,
     "option_off_uf2_unchanged": true,
-    "hardware": "pending; candidate not flashed"
+    "hardware": "completed diagnostic; guarded mkdir rejected once; USB unmounted; RW release blocked"
   },
   "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
   "memory": {
@@ -47,5 +47,93 @@
     "scratch_x_bytes": 3748,
     "scratch_y_bytes": 4096
   },
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "previous_installed_firmware_sha256": "9e3bcebd0e229a3025754676eb2d2f9f6269b5aed15bcebda62b280346677106",
+  "firmware_commit": "ef16c87d3b8a72391f07bd2b8474038723e28b70",
+  "hardware_results": {
+    "machine": "Amstrad PPC512 / PicoMEM 2 / Kingston DataTraveler 1 GB",
+    "firmware_commit": "ef16c87d3b8a72391f07bd2b8474038723e28b70",
+    "full_recovery_backup_sha256": "a644b134acee61d3d82117d7efbb54f0633339fdc0d3f9c7eba60a042bd1d056",
+    "full_recovery_backup_readback_verified": true,
+    "firmware_readback_verified": true,
+    "usb_detected_without_reconnect": true,
+    "retained_files_verified": {
+      "RN28A/Renamed Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d771c7166dc97e2f4e636afb5d4df8f57865c48ddf5095af12cd3b2153576a47"
+      },
+      "RN28A/Keep This File.txt": {
+        "bytes": 4,
+        "sha256": "6ca7ea2feefc88ecb5ed6356ed963f47dc9137f82526fdd25d618ea626d0803f"
+      },
+      "LFN Create 28/Created Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d45c5305b8dd48af787ecfd75dcbedbdf6fca682fef83824fb39c5372eafd441"
+      },
+      "LFN Create 28/Nested Long Directory/Child With Spaces.txt": {
+        "bytes": 1025,
+        "sha256": "984c5645a309dbba620349f0efaa17f16288cf8181d91b13efcdc2d9f6dbd2d4"
+      },
+      "LFN Create 28/N26-xxxxxxxxxxxxxxxxxx.txt": {
+        "bytes": 73,
+        "sha256": "fd13e0d898623dfd06aa25d9aeb4e414079f7a2a05be7a5c4ea188a834d7e773"
+      },
+      "PMBEN29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMDIAG29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMERR29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      }
+    },
+    "fresh_directory_absent_before_attempt": true,
+    "single_attempt": "mkdir /mnt/usb/PMMD1029",
+    "exit_status": 1,
+    "native_error": "/mnt/usb/PMMD1029: cannot create directory",
+    "write_retries": 0,
+    "cached_status": [
+      "?USB fault op=35 f=2 s=1 r=0 d=0 rs=70:5/20/00 n=18 c6=- c10=phase",
+      "USB query op=5a tag=427 why=8 stage=3 event=0",
+      "USB xfer ep=81/81 got=13 want=13 data=8",
+      "USB CSW ck=1f s=0 r=0 n=8 b=0006000000000000"
+    ],
+    "allocation_bytes": 64,
+    "recorded_data_bytes": 8,
+    "mode_prefix_hex": "0006000000000000",
+    "interpretation": "Eight-byte MODE SENSE(10) header, length field 6, no descriptors or mode pages. No WCE bit; cache state unknown. Actual DATA count disagrees with raw CSW residue 0. Checked transport synthesized phase error; raw device CSW status was 0. Device-versus-host origin is not independently established.",
+    "mode_sense_6": "not submitted after ambiguous MODE SENSE(10) completion",
+    "sector_write_submission": "None inferred from pre-write guard control flow and dirty=0; not measured by a USB bus trace",
+    "initial_stack": {
+      "firmware_used": 1632,
+      "firmware_reserved": 4096,
+      "kernel_used": 418,
+      "kernel_reserved": 700,
+      "flags": 0,
+      "invalid": 0,
+      "kernel_samples": 3659
+    },
+    "fault_path_stack_measurement": {
+      "command": "pmperf /mnt/usb",
+      "exit_status": 1,
+      "error": "pmperf ioctl: I/O error",
+      "peak_available": false
+    },
+    "usb_unmounted": true,
+    "sd_unmounted": true,
+    "elks_running": true,
+    "fault_latched_until_mcu_restart": true,
+    "screenshot": {
+      "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount/pmstat, explicitly saved native error, summary from verified baseline",
+      "video_sha256": "b65d56defeb9bd1e9e71292b8aac1dd0f883d3a2e0d4ff0336badd320be5c06b",
+      "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+      "png_sha256": "99e043e92a83b3279a5f3c843495af0ff538a94ccdc21a4ef5dee276bac95d39"
+    },
+    "rw_release_ready": false,
+    "next_step": "Design and host-test bounded short MODE SENSE reply handling using actual received bytes; keep sector I/O checks and unknown-cache write guard. Evaluate explicit cache compatibility policy separately."
+  }
 }

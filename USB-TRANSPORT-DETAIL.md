@@ -119,10 +119,9 @@ successfully; SD stayed unmounted. Initial stack use was 1632/4096 firmware byte
 and 418/700 kernel bytes with zero flags/invalid counts. Fault-path peak use was
 not measured. ELKS remains running with the fault latched until PicoMEM restarts.
 
-My next proposed diagnostic is a bounded capture of returned mode bytes and
-MODE SENSE(10) as the **first** cache query on a fresh boot. That would test the
-alternate command without continuing after this ambiguous MODE SENSE(6) response.
-It is not implemented or flashed yet. Strict transport checks, write quarantine
+This result motivated a bounded capture of returned mode bytes and
+MODE SENSE(10) as the **first** cache query on a fresh boot. The follow-up result
+is recorded below or in the linked report. Strict transport checks, write quarantine
 and the flush requirement remain; no cache-setting change or write retry was made.
 
-The [MODE SENSE(10)-first / raw-prefix follow-up](USB-MODE10-PREFIX.md) is now built and host-tested; hardware validation is pending.
+The [MODE SENSE(10)-first / raw-prefix follow-up](USB-MODE10-PREFIX.md) has now completed its PPC512 test: an eight-byte header was captured, without a caching page. Writes remain blocked; see the follow-up for evidence and next steps.
