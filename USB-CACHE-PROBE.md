@@ -3,7 +3,8 @@
 I am preparing a hardware diagnostic for the cache-flush blocker identified in
 [the command audit](USB-COMMAND-AUDIT.md). **This candidate blocks all USB sector
 writes and sends no SYNCHRONIZE CACHE commands. It is not a read/write release.**
-It is built and host-tested; physical validation is pending.
+It is built and host-tested. The first physical test is recorded below; it did
+not establish the drive's cache policy.
 
 ## Trigger and results
 
@@ -75,8 +76,7 @@ responses fit. Status reads perform no USB transfer.
 - ARM builds with the probe ON and OFF pass. The OFF BIN differs from the installed
   inventory baseline only in five bytes of the RTC build-time string.
 - Candidate uses 4,814,120 FLASH bytes and 382,904 RAM bytes. Core 0 retains 4096
-  stack bytes and core 1 retains 2048, without scratch overlap. Runtime stack peak
-  and physical USB behavior are not yet measured.
+  stack bytes and core 1 retains 2048, without scratch overlap. Runtime stack peak remains unmeasured; the first physical probe result is below.
 
 [Candidate hashes and validation manifest](USB-CACHE-PROBE.json).
 
@@ -94,3 +94,38 @@ I/O until restart. Other drives are separate comparisons, not simultaneous mount
 A validated WCE=0 result could inform a future write-through implementation. This
 candidate implements no such policy, and unknown cache behavior never enables
 writes. Reported cache settings alone do not prove power-loss durability.
+
+
+## First physical probe: generic drive through powered hub
+
+I flashed the candidate after saving and readback-verifying a fresh full 16 MiB
+recovery image. The new firmware also passed readback verification. On the PPC512,
+I confirmed the generic drive `0011:7788` selected at address 1, port 3 of hub
+`1a40:0101` (address 5). A read-only mount succeeded. All nine non-hidden files
+(913,703 bytes) matched their prior Mac SHA256 baseline, and `PMCP1030` was absent.
+
+After remounting for the diagnostic trigger, I made exactly one
+`mkdir /mnt/usb/PMCP1030` attempt. It failed as expected, but the capability query
+timed out rather than returning a usable response:
+
+```text
+USB cache probe: dev=1 WCE=unknown I/O=quarantined
+MODE10 time actual=255 used=0 status=255 residue=255
+MODE6 - actual=255 used=0 status=255 residue=255
+Diagnostic only: USB writes blocked; no flush command sent.
+```
+
+MODE SENSE(6) was not attempted. The `255` values mark unavailable metadata; they
+are not device-returned status values. I made no retry and successfully unmounted
+USB. No post-fault media reads were attempted. Repeated cached status reads kept
+the same result. ELKS remains running; PicoMEM must restart before further USB I/O.
+
+This establishes a timeout on a read-only MODE SENSE command independently of the
+flush command. It does not identify the drive, hub, controller or transport as the
+cause, and it does not establish whether the drive has a write cache. The verified
+diagnostic build blocks sector writes and issues no flush; this is software
+evidence, not a physical USB bus trace. The next controlled comparison is this
+same firmware and drive connected directly to PicoMEM after a fresh restart.
+
+[Hardware record](USB-CACHE-PROBE-HARDWARE.json) ·
+[Actual PPC screen capture](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/screenshots/ppc512-usb-cache-probe-20261030.png).

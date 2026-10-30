@@ -1,6 +1,6 @@
 {
   "date": "2026-10-30",
-  "status": "Built and host-tested; NOT FLASHED or hardware validated",
+  "status": "Built and flashed with verified full recovery backup and readback; first hardware probe timed out, WCE unknown; not a RW release",
   "firmware_commit": "0a0df934552efd372403f2ff59c8e595ec5ddc78",
   "branch": "codex/usb-sync-lifetime",
   "candidate_artifacts_sha256": {
@@ -26,7 +26,7 @@
     "probe_off_arm_build": "passed",
     "stack_layout": "core0 4096 bytes; core1 2048; no overlap",
     "runtime_stack_peak": "unmeasured",
-    "hardware": "pending"
+    "hardware": "Generic drive through powered hub: MODE SENSE(10) timeout; I/O quarantined; safely unmounted"
   },
   "memory": {
     "flash_bytes": 4814120,
@@ -65,5 +65,6 @@
   },
   "new_kernel_required": false,
   "new_elks_utility_required": false,
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "hardware_record": "USB-CACHE-PROBE-HARDWARE.json"
 }
