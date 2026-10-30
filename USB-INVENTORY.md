@@ -1,8 +1,8 @@
 # USB hub and device inventory
 
 I added explicit hub and downstream-device reporting to the experimental
-`pmstat --usb` response. **The candidate is built and host-tested; hardware
-validation is pending.** It uses the existing ELKS kernel and utility.
+`pmstat --usb` response. **The candidate passed hardware validation with one hub and two USB disks,
+including read-only checks of the selected Kingston.** It uses the existing ELKS kernel and utility.
 
 The firmware already enumerated devices behind hubs, but its status command
 excluded hub addresses and printed an empty row for an unselected second disk.
@@ -65,7 +65,29 @@ label a newly enumerated healthy or inactive disk.
 
 [Source and artifact manifest](USB-INVENTORY.json).
 
-Hardware validation will use a fresh full recovery backup, verified flash, then
-cached status checks with no device, hub plus one disk, and hub plus two disks.
-Read-only checks will identify the selected volume. No guarded write attempt is
-needed to test inventory. The upstream metadata-only draft PR is unchanged.
+## PPC512 hardware result — 30 October 2026
+
+After a verified full recovery backup and firmware flash, the first live query
+already showed a hub and one disk. I then added the SanDisk to the running system.
+The existing ELKS utility displayed:
+
+```text
+   USB  : 2 devices, 1 hub
+5: Hub 1a40:0101 root 0 enumerated
+1: Disk 0951:1602 hub 5 port 4 selected
+2: Disk 0781:5150 hub 5 port 3 inactive
+```
+
+The response contained 143 bounded bytes. Kingston remained selected when the
+SanDisk appeared. All eight saved Kingston file checksums matched through a
+read-only ELKS mount, including long names and nested directories. I unmounted
+USB afterward and left ELKS running with both sticks connected. There was no
+write attempt or reported USB fault.
+
+The first query already had devices present, so an empty inventory was not
+observed on hardware. Four-device, fault-rendering and removal-while-mounted
+cases were not tested on the PPC in this run. Simultaneous
+storage mounts remain unsupported. This reporting result does not resolve the
+previous cache-flush failures. The upstream metadata-only draft PR is unchanged.
+
+[Actual PPC screenshot and result](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#hub-inventory-hardware-result).

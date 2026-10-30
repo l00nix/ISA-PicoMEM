@@ -1,6 +1,6 @@
 {
   "date": "2026-10-30",
-  "status": "Built and host-tested; hardware inventory validation pending; RW release remains blocked",
+  "status": "Hardware validated with one hub and two disks; selected Kingston read-only checks passed; RW blocker unchanged",
   "firmware_commit": "92d36d47750c6e71ee489d182bb3219bce1cc600",
   "branch": "codex/usb-sync-lifetime",
   "candidate_artifacts_sha256": {
@@ -33,7 +33,7 @@
     "disabled_feature_build": "passed",
     "stack_map": "core 0 4096 bytes; core 1 2048 bytes; no overlap",
     "runtime_stack_peak": "unmeasured",
-    "hardware": "pending"
+    "hardware": "One hub/one disk then live addition of second disk passed; eight selected Kingston file checksums matched; no write test"
   },
   "memory": {
     "flash_bytes": 4813600,
@@ -45,5 +45,102 @@
   "new_elks_utility_required": false,
   "inventory_source": "Cached TinyUSB enumeration metadata and cached adapter selection/fault only; no USB transfer, reset or task pump",
   "limits": "Configured one hub/four downstream devices; one file-service storage volume. Eight status lines; hub detail omitted during faults to preserve prior diagnostic capacity. Multiple downstream devices can still limit optional diagnostics as before.",
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "physical_flash": {
+    "firmware_backup_sha256": "0387f1a92959f953b5d7f9a5fd9596bb289003e5223b1ec0e76c2ba5aab4a33c",
+    "firmware_backup_verified": true,
+    "firmware_readback_verified": true,
+    "firmware_flash_utc": "2026-10-30T15:35:23.287610+00:00"
+  },
+  "hardware_results": {
+    "date": "2026-10-30",
+    "firmware_commit": "92d36d47750c6e71ee489d182bb3219bce1cc600",
+    "firmware_uf2_sha256": "a7186d7616b64447ed46b8322dcccc918b6b02c8f0caa3d9217374a5e6633f80",
+    "firmware_readback_verified": true,
+    "full_backup_readback_verified": true,
+    "backup_sha256": "0387f1a92959f953b5d7f9a5fd9596bb289003e5223b1ec0e76c2ba5aab4a33c",
+    "initial_inventory": "First query already showed one hub and one disk; empty inventory was not observed on hardware.",
+    "hub": {
+      "address": 5,
+      "vid_pid": "1a40:0101",
+      "root_port": 0,
+      "state": "enumerated"
+    },
+    "devices": [
+      {
+        "address": 1,
+        "vid_pid": "0951:1602",
+        "hub_address": 5,
+        "hub_port": 4,
+        "state": "selected",
+        "identity": "Kingston; user-reported connection and eight saved full-file checksums matched"
+      },
+      {
+        "address": 2,
+        "vid_pid": "0781:5150",
+        "hub_address": 5,
+        "hub_port": 3,
+        "state": "inactive",
+        "identity": "SanDisk; user reported adding it after the first inventory"
+      }
+    ],
+    "one_disk_response_bytes": 102,
+    "two_disk_response_bytes": 143,
+    "second_disk_added_live": true,
+    "selected_volume_after_second_disk": "Kingston unchanged",
+    "kingston_read_only_mount": "passed",
+    "kingston_file_baselines": {
+      "RN28A/Renamed Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d771c7166dc97e2f4e636afb5d4df8f57865c48ddf5095af12cd3b2153576a47"
+      },
+      "RN28A/Keep This File.txt": {
+        "bytes": 4,
+        "sha256": "6ca7ea2feefc88ecb5ed6356ed963f47dc9137f82526fdd25d618ea626d0803f"
+      },
+      "LFN Create 28/Created Long Filename.txt": {
+        "bytes": 3073,
+        "sha256": "d45c5305b8dd48af787ecfd75dcbedbdf6fca682fef83824fb39c5372eafd441"
+      },
+      "LFN Create 28/Nested Long Directory/Child With Spaces.txt": {
+        "bytes": 1025,
+        "sha256": "984c5645a309dbba620349f0efaa17f16288cf8181d91b13efcdc2d9f6dbd2d4"
+      },
+      "LFN Create 28/N26-xxxxxxxxxxxxxxxxxx.txt": {
+        "bytes": 73,
+        "sha256": "fd13e0d898623dfd06aa25d9aeb4e414079f7a2a05be7a5c4ea188a834d7e773"
+      },
+      "PMBEN29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMDIAG29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      },
+      "PMERR29/Runtime File Alpha.txt": {
+        "bytes": 3073,
+        "sha256": "09af4de6b33ee8e2cd98cd3b02531f96f62eb0b6dc4c6c3adc0879a1a206a5f1"
+      }
+    },
+    "writes_attempted": false,
+    "fault_reported": false,
+    "not_hardware_tested": [
+      "Empty inventory",
+      "Fault-report rendering on this firmware",
+      "Four downstream devices",
+      "Removing inactive disk while selected disk is mounted",
+      "Simultaneous storage mounts (not implemented)"
+    ],
+    "upstream_pr_changed": false,
+    "usb_unmounted": true,
+    "sd_unmounted": true,
+    "elks_left_running": true,
+    "screenshot": {
+      "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount/pmstat and summary from eight verified file baselines",
+      "video_sha256": "f6a66ed3b88e096f1cc06b38c5cb39c20364c49db4c79382c9ecebea4a5dd8a7",
+      "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+      "png_sha256": "8af720e07709e62885f59a31a173790080bde05a4dec8656ca9a600eace519ad"
+    }
+  }
 }
