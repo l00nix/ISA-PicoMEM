@@ -2,8 +2,8 @@
 
 I built this diagnostic after the [SanDisk comparison](USB-SHORT-MODE.md) timed
 out during its initial SYNCHRONIZE CACHE(10), before any sector write was submitted
-according to the pre-write guard. **Host tests and builds pass; hardware testing
-is pending. This is not a read/write release candidate.**
+according to the pre-write guard. **Host tests and builds pass; the PPC512 test captured the pending status reply.
+This is not a read/write release candidate.**
 
 ## What changes
 
@@ -62,3 +62,36 @@ confirm a fresh test directory is absent, and make one guarded mkdir attempt.
 I will capture native output, cached USB status and a screenshot, then unmount.
 Any failure ends writes for that session. The display-switch observation remains
 separate and unresolved; no causal link to the USB timeout has been established.
+
+## PPC512 result — 30 October 2026
+
+The full recovery backup and new firmware passed readback verification. ELKS
+returned at its usual address, and the first status query already detected the
+USB drive without an old fault. Exact insertion timing was not confirmed.
+Read-only mounting passed, and all three prior SanDisk file baselines matched
+byte counts and SHA256. A fresh `PMTS1030` directory was absent. After remounting
+read/write, one `mkdir` failed with `cannot create directory`.
+
+```text
+?USB fault op=35 f=6 s=255 r=0 d=0
+USB timeout op=35 tag=2381 stage=3 submit=1
+USB pending ep=81 want=13 deadline_ms=2000
+USB last stage=1 event=0 ep=01 got=31
+```
+
+The host reported a successful 31-byte command-wrapper completion on OUT endpoint
+01, then accepted the 13-byte status IN transfer on endpoint 81. That status
+transfer had not delivered a completion callback before the two-second deadline.
+This narrows the investigation to status-transfer progress/completion delivery;
+it does not distinguish device delay/NAK from a host-controller or scheduling
+problem, and it does not prove an unsupported command. There is no physical bus
+trace. No sector write was submitted according to the pre-write guard and `d=0`.
+
+I made no retry, unmounted USB successfully, and left ELKS running with only its
+root filesystem mounted. The cached evidence remained identical during the screen
+capture. Initial stack readings were 1888/4096 firmware and 418/700 kernel, with
+zero flags/invalid samples; the fault-path peak remains unmeasured. The display
+shortcut after hotplug remains unconfirmed. I will investigate the host-controller
+status-IN path before changing timeout or recovery behavior.
+
+[Actual PPC512 screenshot](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/screenshots/ppc512-sandisk-timeout-stage-20261030.png).

@@ -1,6 +1,6 @@
 {
   "date": "2026-10-29",
-  "status": "Built and host-tested; hardware test pending; not a RW release candidate",
+  "status": "Hardware diagnostic captured SanDisk pending CSW transfer; RW release blocked",
   "branch": "codex/usb-sync-lifetime",
   "firmware_commit": "42ab6015096a56452b2ee2d317c08bb87b9cc0d1",
   "candidate_artifacts_sha256": {
@@ -35,7 +35,7 @@
     "core1_stack_reserved": 2048,
     "runtime_fault_path_peak": "unmeasured",
     "option_off_uf2_unchanged": true,
-    "hardware": "pending"
+    "hardware": "SanDisk three baseline checks passed; one guarded mkdir timed out at accepted status IN stage; USB unmounted"
   },
   "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
   "memory": {
@@ -44,5 +44,73 @@
     "scratch_x_bytes": 3748,
     "scratch_y_bytes": 4096
   },
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "hardware_results": {
+    "date": "2026-10-30",
+    "firmware_commit": "42ab6015096a56452b2ee2d317c08bb87b9cc0d1",
+    "firmware_uf2_sha256": "5fef938a482772c6e92952c49ba5ac36493f69a2859c92098ac07399d91d67f9",
+    "firmware_readback_verified": true,
+    "backup_sha256": "4ddd0a97a63c7626307c3315486fc8954b1cb615de02046738467f2eb338a41c",
+    "full_backup_readback_verified": true,
+    "device": "SanDisk Cruzer Mini 512 MB FAT32 (user reported; three prior file baselines matched)",
+    "startup": "User confirmed ELKS up. First query already showed USB Disk mounted (checked I/O); exact insertion timing not confirmed.",
+    "read_only_mount": "passed",
+    "existing_file_baselines_matched": [
+      {
+        "bytes": 8660,
+        "sha256": "93174bba1ca16281826bf7e5f8aad598d53cc21df2ba4672913778b5191d97a2"
+      },
+      {
+        "bytes": 8720,
+        "sha256": "460ef3cd781d84c7fd21f53f226ec84455c258da955913071866318dc62b6c01"
+      },
+      {
+        "bytes": 35508,
+        "sha256": "4ce20a1a75b56d3547b42c166518366630921f09caf22c7e74fb877f0b0294bb"
+      }
+    ],
+    "baseline_note": "All three files match the prior SanDisk full-byte SHA256 baselines; no post-fault readback attempted.",
+    "single_attempt": "mkdir /mnt/usb/PMTS1030",
+    "test_name_absent": true,
+    "exit_status": 1,
+    "native_error": "/mnt/usb/PMTS1030: cannot create directory",
+    "cached_fault": "?USB fault op=35 f=6 s=255 r=0 d=0",
+    "pending_snapshot": {
+      "opcode": "35",
+      "tag": 2381,
+      "stage": 3,
+      "submission": 1,
+      "endpoint": "81",
+      "expected_bytes": 13,
+      "deadline_ms": 2000,
+      "last_stage": 1,
+      "last_event": 0,
+      "last_endpoint": "01",
+      "last_actual_bytes": 31
+    },
+    "interpretation": "Host reports successful 31-byte command-wrapper completion, then accepts 13-byte status IN transfer. No completion callback for status before adapter deadline. Device delay/NAK, host scheduling and completion-delivery causes remain unresolved; no physical USB bus trace.",
+    "sector_write_submission": "None inferred from audited pre-write guard and dirty=0; not a physical bus trace",
+    "write_retries": 0,
+    "initial_stack": {
+      "firmware_used": 1888,
+      "firmware_reserved": 4096,
+      "kernel_used": 418,
+      "kernel_reserved": 700,
+      "flags": 0,
+      "invalid": 0,
+      "samples": 4020
+    },
+    "fault_path_stack_peak": "unmeasured",
+    "usb_unmounted": true,
+    "sd_unmounted": true,
+    "elks_left_running": true,
+    "fault_latched_until_mcu_restart": true,
+    "screen_switch_after_hotplug": "not confirmed",
+    "screenshot": {
+      "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount/pmstat, explicitly saved native error, summary from verified baseline",
+      "video_sha256": "8e870398aedba303c438e43956cfca97bd92f1012d4255b96b6e07ac983cfcfa",
+      "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+      "png_sha256": "da3ec60d8c6b89d2401fad709dc627ef24da5d645c2e437e6b8bfcdd72dc369e"
+    }
+  }
 }
