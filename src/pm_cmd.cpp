@@ -937,8 +937,13 @@ void PM_ExecCMD()
       if ((PM_Config->EnableUSB)==1)
         {
 #ifdef PICOMEM_EXPERIMENTAL_USB_SYNC
-         usb_build_inventory((char *)&PCCR_Param, 1024);
-         pm_usb_append_transport_status((char *)&PCCR_Param, 1024);
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+         if (!pm_usb_cache_probe_status((char *)&PCCR_Param, 1024))
+#endif
+         {
+          usb_build_inventory((char *)&PCCR_Param, 1024);
+          pm_usb_append_transport_status((char *)&PCCR_Param, 1024);
+         }
 #else
          usbnb=usb_get_devnb();
     

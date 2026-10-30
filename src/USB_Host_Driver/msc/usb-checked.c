@@ -14,6 +14,12 @@
 #include <stdio.h>
 #include "pico/time.h"
 
+#if defined(PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE) && !defined(PICOMEM_EXPERIMENTAL_USB_SYNC)
+#error "Cache probe requires checked USB transport"
+#endif
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+static void cache_probe_reset(void);
+#endif
 #define SECTOR_BYTES 512u
 #define COMMAND_TIMEOUT_US 2000000u
 static uint8_t transfer_data[SECTOR_BYTES] __attribute__((aligned(4)));
@@ -68,6 +74,9 @@ bool pm_usb_attach(uint8_t dev)
         !tuh_msc_get_block_count(dev, 0)) return false;
     device = dev;
     dirty = sync_supported = false;
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+    cache_probe_reset();
+#endif
     return true;
 }
 void pm_usb_detach(uint8_t dev)
@@ -77,6 +86,9 @@ void pm_usb_detach(uint8_t dev)
     if (active || dirty) fault(FAULT_DETACH, 255, 0);
     device = 0;
     sync_supported = false;
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+    if (!failed) cache_probe_reset();
+#endif
     /* Do not release or repurpose transfer_data, request, or tag while failed. */
 }
 
@@ -88,6 +100,46 @@ static msc_cbw_t cache_request[2];
 static const char *cache_result[2] = {"-", "-"};
 static unsigned cache_index, cache_length;
 static bool cache_waiting, cache_completed;
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+static bool probe_attempted;
+static unsigned probe_lines;
+static char probe_report[8][80];
+static unsigned probe_lengths[2], probe_actual[2], probe_status[2], probe_residue[2];
+static unsigned probe_device;
+static const char *probe_wce = "unknown";
+static uint8_t probe_bytes[2][CACHE_BYTES];
+static void cache_probe_reset(void)
+{
+    /* Only clean attach/detach clears evidence; failed sessions stay latched. */
+    probe_attempted = false;
+    probe_lines = 0;
+    memset(probe_report, 0, sizeof(probe_report));
+    memset(probe_lengths, 0, sizeof(probe_lengths));
+    memset(probe_bytes, 0, sizeof(probe_bytes));
+    for (unsigned i = 0; i < 2; ++i) {
+        probe_actual[i] = probe_status[i] = probe_residue[i] = 255;
+        cache_result[i] = "-";
+    }
+}
+bool pm_usb_cache_probe_status(char *buffer, size_t capacity)
+{
+    if (!buffer || !probe_lines) return false;
+    snprintf(probe_report[0], sizeof(probe_report[0]),
+        "USB cache probe: dev=%u WCE=%s I/O=%s", probe_device, probe_wce,
+        failed ? "quarantined" : "read-only");
+    size_t needed = 1;
+    for (unsigned i = 0; i < probe_lines; ++i) needed += strlen(probe_report[i]) + 1;
+    if (capacity < needed) return false; /* Atomic: never emit a truncated frame. */
+    buffer[0] = (char)probe_lines;
+    size_t end = 1;
+    for (unsigned i = 0; i < probe_lines; ++i) {
+        size_t n = strlen(probe_report[i]) + 1;
+        memcpy(buffer + end, probe_report[i], n);
+        end += n;
+    }
+    return true;
+}
+#endif
 
 /* Latest completed cache-query text, independent of device close/late callbacks.
  * Three base lines plus three optional HCD lines, each <=79 bytes.
@@ -223,6 +275,15 @@ static bool cache_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
                 cache_length = CACHE_BYTES - f.residue;
                 if (cache_length > f.data_bytes) cache_length = f.data_bytes;
                 cache_result[cache_index] = reply->csw->status ? "s1" : "ok";
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+                /* Snapshot only fully validated completion bytes, never a
+                 * possibly live controller-owned buffer after a timeout. */
+                probe_lengths[cache_index] = cache_length;
+                probe_actual[cache_index] = f.data_bytes;
+                probe_status[cache_index] = f.csw_status;
+                probe_residue[cache_index] = f.residue;
+                memcpy(probe_bytes[cache_index], cache_data[cache_index], cache_length);
+#endif
             }
         } else {
             cache_result[cache_index] = "phase";
@@ -297,6 +358,58 @@ static bool collect_cache(unsigned index)
         cache_result[index] = cache_parse(cache_data[index], cache_length, index != 0);
     return strcmp(cache_result[index], "on") && strcmp(cache_result[index], "off");
 }
+
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+static void cache_probe(void)
+{
+    /* Exactly once per clean attachment, on an explicit attempted write.
+     * No background USB work, flush, MODE SELECT, retry or sector write. */
+    probe_attempted = true;
+    active = true;
+    sense_device = device;
+    probe_device = device;
+    bool alternate = collect_cache(1);
+    if (!cache_completed) {
+        fault_opcode = 0x5a;
+        fault(FAULT_REPLY, 255, 0);
+    } else if (alternate) {
+        (void)collect_cache(0);
+        if (!cache_completed) {
+            fault_opcode = 0x1a;
+            fault(FAULT_REPLY, 255, 0);
+        }
+    }
+    /* A checked completed command can leave cache policy unknown. No result,
+     * including validated WCE=0, enables writes in this diagnostic candidate. */
+    const char *state = "unknown";
+    if (!failed) for (unsigned i = 0; i < 2; ++i) {
+        if (!strcmp(cache_result[i], "off")) state = "disabled";
+        if (!strcmp(cache_result[i], "on")) state = "enabled";
+    }
+    probe_wce = state; /* The cached-status function supplies current I/O state. */
+    unsigned line = 1;
+    for (int i = 1; i >= 0; --i) {
+        snprintf(probe_report[line++], 80,
+            "MODE%d %s actual=%u used=%u status=%u residue=%u", i ? 10 : 6,
+            cache_result[i], probe_actual[i], probe_lengths[i], probe_status[i], probe_residue[i]);
+        for (unsigned offset = 0; offset < probe_lengths[i]; offset += 32) {
+            char *out = probe_report[line++];
+            unsigned prefix = (unsigned)snprintf(out, 80, "M%d +%02u ", i ? 10 : 6, offset);
+            unsigned n = probe_lengths[i] - offset;
+            if (n > 32) n = 32;
+            for (unsigned j = 0; j < n; ++j) {
+                static const char hex[] = "0123456789abcdef";
+                out[prefix + 2*j] = hex[probe_bytes[i][offset+j] >> 4];
+                out[prefix + 2*j+1] = hex[probe_bytes[i][offset+j] & 15];
+            }
+            out[prefix+2*n] = 0;
+        }
+    }
+    strcpy(probe_report[line++], "Diagnostic only: USB writes blocked; no flush command sent.");
+    probe_lines = line; /* <=8; publish only the fully constructed cached frame. */
+    if (!failed) active = false;
+}
+#endif
 
 static bool sense_complete(uint8_t dev, const tuh_msc_complete_data_t *reply)
 {
@@ -560,6 +673,11 @@ DRESULT usb_disk_read(BYTE *buf, LBA_t sector, UINT count)
 DRESULT usb_disk_write(const BYTE *buf, LBA_t sector, UINT count)
 {
     DRESULT r = validate(buf, sector, count);
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+    if (r != RES_OK) return r;
+    if (!probe_attempted) cache_probe();
+    return failed ? RES_ERROR : RES_WRPRT;
+#else
     if (r != RES_OK || (r = begin()) != RES_OK) return r;
     /* Refuse unsupported flush before the first sector mutation on this device. */
     if (!sync_supported) {
@@ -575,6 +693,7 @@ DRESULT usb_disk_write(const BYTE *buf, LBA_t sector, UINT count)
         buf += SECTOR_BYTES;
     }
     return end(r);
+#endif
 }
 DRESULT usb_disk_ioctl(BYTE cmd, void *buf)
 {
@@ -582,11 +701,15 @@ DRESULT usb_disk_ioctl(BYTE cmd, void *buf)
     if (failed || active) return RES_ERROR;
     if (!present()) return RES_NOTRDY;
     if (cmd == CTRL_SYNC) {
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+        return RES_WRPRT; /* No flush from any path in this diagnostic build. */
+#else
         r = begin();
         if (r != RES_OK) return r;
         r = command(0x35, 0);
         if (r == RES_OK) { dirty = false; sync_supported = true; }
         return end(r);
+#endif
     }
     if (!buf) return RES_PARERR;
     switch (cmd) {

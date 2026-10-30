@@ -15,4 +15,8 @@ void pm_usb_detach(uint8_t dev);
 void pm_usb_observe_late(void);
 /* Append cached diagnostic lines only; does not submit USB commands. */
 void pm_usb_append_transport_status(char *buffer, size_t capacity);
+#ifdef PICOMEM_EXPERIMENTAL_USB_CACHE_PROBE
+/* Cached, bounded probe report; no USB calls. False means no complete report. */
+bool pm_usb_cache_probe_status(char *buffer, size_t capacity);
+#endif
 #endif
