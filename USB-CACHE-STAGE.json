@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-30",
+  "status": "Built and tested; NOT FLASHED; physical validation pending",
+  "firmware_source": "d162c53e3ae1e4fe9dd1838c58578cd3b214f1c7",
+  "candidate_artifacts_sha256": {
+    "picomem.uf2": "ab69756101c643d11bba3c52fe642bb28b8af6ca5bd991fc2ff4d48ebded1387",
+    "picomem.bin": "ba7b83ffae1e058404319eb2311e7ddb4bf7a4e5068b41909ce8e0fdb4f98cd0",
+    "picomem.elf": "d4cbd2f2930ab982dd20933a55ac3c2adeaa0715f57846c5dad50e0be787289b",
+    "picomem.elf.map": "0f02467143d0d9434d8b1425d5c8de000339fd17b7d581899dca03b817b62aa8"
+  },
+  "tests": {
+    "cache_probe_scenarios": 80,
+    "probe_fat32_scenarios": 12,
+    "probe_images": "Whole-image SHA256 unchanged",
+    "tinyusb_cases": 19268,
+    "joined_wire_cases": 72,
+    "adapter_cases": 191,
+    "late_cases": 43,
+    "existing_fatfs_cases": 5,
+    "native_getter_cases": 1320,
+    "inventory_cases": 10845,
+    "sanitizers": "ASan/UBSan",
+    "arm_on": "passed",
+    "arm_off": "passed",
+    "stack_layout": "4096-byte core0, 2048-byte core1; no overlap",
+    "runtime_stack_peak": "unmeasured",
+    "hardware": "pending",
+    "elks_status_cases": 30
+  },
+  "memory": {
+    "flash_bytes": 4814320,
+    "ram_bytes": 382904,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "policy": {
+    "usb_sector_writes": false,
+    "usb_flush": false,
+    "retry": false,
+    "reset": false,
+    "status_queries": "Cached, no USB or register reads",
+    "timeout_snapshot": "Read-only pending-transfer getter plus existing native controller snapshot; no payload reads",
+    "timeout_rows": "Up to8 rows, each under80 bytes including NUL; atomic bounded copy",
+    "no_new_kernel": true,
+    "no_new_utility": true
+  },
+  "off_comparison": {
+    "old_bytes": 4813600,
+    "new_bytes": 4813592,
+    "differing_bytes": 4421503,
+    "first_offsets": [
+      296,
+      300,
+      324,
+      416,
+      428,
+      440,
+      560,
+      1280,
+      1300,
+      1301,
+      1348,
+      2700,
+      3142,
+      3148,
+      3156,
+      3792,
+      4112,
+      4220,
+      4708,
+      4744
+    ],
+    "old_sha256": "6bb0f544caaf0fa05ad06eae2dab7d905ff26302bd8908310a567ad9d42478cf",
+    "new_sha256": "4a81f5f530f3b270d5a4542d6d47e878e4df0bd892702f4408812c967ae68e53",
+    "interpretation": "Probe-OFF build passes; shared timeout reporter opcode parameter refactor changes code layout. Not byte-identical; FLASH decreases by8 bytes."
+  }
+}

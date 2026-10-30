@@ -155,3 +155,8 @@ changing the write policy. This reporting gap is not itself evidence of the caus
 
 [Direct hardware record](USB-CACHE-PROBE-DIRECT.json) ·
 [Actual PPC screen capture](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/screenshots/ppc512-usb-cache-direct-20261030.png).
+
+
+The [cache-query transfer-stage candidate](USB-CACHE-STAGE.md) now implements this
+snapshot reporting and has passed host tests and ARM builds. It has not yet been
+flashed; the hardware results above remain from the earlier firmware.
