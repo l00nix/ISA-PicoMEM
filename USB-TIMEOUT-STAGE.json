@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-29",
+  "status": "Built and host-tested; hardware test pending; not a RW release candidate",
+  "branch": "codex/usb-sync-lifetime",
+  "firmware_commit": "42ab6015096a56452b2ee2d317c08bb87b9cc0d1",
+  "candidate_artifacts_sha256": {
+    "picomem.bin": "31ddf0b9c06b86f797509c3411af5def92fd98d8dc3cebc3716f6f0af735b704",
+    "picomem.elf": "6121a351bf766e849cce11a6bbb87f843c434dae712918e4c8e6ca0607d79035",
+    "picomem.elf.map": "5c04e894611f09a3b88c8519dbb611897b92bbed66e9bff172de48a628f0c832",
+    "picomem.uf2": "5fef938a482772c6e92952c49ba5ac36493f69a2859c92098ac07399d91d67f9"
+  },
+  "source_sha256": {
+    "src/USB_Host_Driver/msc/usb-checked.c": "6cc5cee3fb632fef9c81bede0d7563e6f2694f55826fef6fea0a316225f353d2",
+    "src/lib/tinyusb/src/class/msc/msc_host.c": "9cca05aabd062f22e114abb447379793da394644c9afcfae84ead1b39deaded1",
+    "src/lib/tinyusb/src/class/msc/msc_host.h": "d4eafb9c20f5501330b0dc970dda6f082c8827bb990ce62b80d2ca26f6bce439",
+    "src/CMakeLists.txt": "7eda926ace56621fa1d45fc7147ebbb5530600ae39254d63c3ca119f0d3138ce",
+    "tools/patches/tinyusb-0.19-checked-msc.patch": "7a3911d03e0bf9e3f3748f46e74de88cbf9d2f6354b9cd226d92466a822f8c70",
+    "tools/tests/usb-sync/msc-test.c": "eb779bc487edc14b57b587d7bc0ab8dd4a0336cffe350b09b199add098d0ca52",
+    "tools/tests/usb-sync/adapter-test.c": "4981e9d247869385a3d27f2e6d57fb2e7e969b47288b0d8fe0a643bef61486a4",
+    "tools/tests/usb-sync/fatfs-test.c": "e7a4101a4f70662ad9c51827c298532b1f0082522dfc52aa278f0de21029febf",
+    "tools/tests/usb-sync/test.py": "9d78145f10a6aec1da3cfd291d7f23e19b2ad564615c00437a52ae1492ee491b"
+  },
+  "installed_firmware_sha256": "87d8ed87e5b671314da7e639614a3d36c64a7bdb6e68475899326d8026b51cc6",
+  "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
+  "new_kernel_required": false,
+  "changes": "Cache pending command stage, transfer submission result, endpoint, expected length and last callback at existing 2-second command deadline; no added USB transactions, reset, retry or write-policy changes. No incomplete CSW/data buffer inspection.",
+  "tests": {
+    "actual_tinyusb_cases": 19268,
+    "adapter_scenarios": 191,
+    "fatfs_mount_fat32_scenarios": 5,
+    "legacy_usb_cases": 14,
+    "asan_ubsan": "passed",
+    "arm_build": "passed",
+    "core0_stack_reserved": 4096,
+    "core1_stack_reserved": 2048,
+    "runtime_fault_path_peak": "unmeasured",
+    "option_off_uf2_unchanged": true,
+    "hardware": "pending"
+  },
+  "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
+  "memory": {
+    "flash_bytes": 4810024,
+    "ram_bytes": 381596,
+    "scratch_x_bytes": 3748,
+    "scratch_y_bytes": 4096
+  },
+  "upstream_pr_changed": false
+}
