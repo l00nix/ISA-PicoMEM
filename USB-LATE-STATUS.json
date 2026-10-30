@@ -1,6 +1,6 @@
 {
   "date": "2026-10-30",
-  "status": "Built and host-tested; hardware observation pending; RW release blocked",
+  "status": "Hardware observation complete: no late completion within 30 seconds; RW release blocked",
   "branch": "codex/usb-sync-lifetime",
   "firmware_commit": "4afc5abe1a78321be777435e2a94674b690a8e4a",
   "candidate_artifacts_sha256": {
@@ -25,7 +25,7 @@
     "src/pm_cmd.cpp": "bf458392341c8202d203a29c7e0250c85885b68e67e3611e280a38abefe97ef5",
     "tools/tests/usb-sync/late-test.c": "d842b72d3210fc15d509d61354127d6af2e56bbeadfee704e1cb6e08b4736224"
   },
-  "installed_firmware_sha256": "e9e2b88cbcbc5301fa1e49aa1de143732b3118db48f56b5b408f08f4d93010eb",
+  "installed_firmware_sha256": "cfaa1629d7ac3a49475c8798086c4b21eb3047f689daa3730ebfc8cf2401a2f6",
   "existing_kernel_sha256": "262a4394e95990a515ecc75bb3e27f67d900e07d199953bdf51ee979873e5c9e",
   "new_kernel_required": false,
   "changes": "Initial clean no-data flush timeout keeps the normal two-second error and permanent write quarantine. Observe existing completion callback for 30 additional seconds in normal task loop. No resubmit, USB reset, recovery or delayed caller return; freeze original timeout/HCD evidence.",
@@ -42,7 +42,7 @@
     "core1_stack_reserved": 2048,
     "runtime_fault_path_peak": "unmeasured",
     "option_off_uf2_unchanged": true,
-    "hardware": "pending",
+    "hardware": "SanDisk: three baseline files matched, one guarded mkdir failed, observer expired at 30000 ms with no completion recorded; USB unmounted",
     "late_observation_cases": 43
   },
   "option_off_uf2_sha256": "2805f400e4382fe2257428dc5cba716ed8b28e517e8e1774bac587dddb023ac1",
@@ -52,5 +52,78 @@
     "scratch_x_bytes": 3748,
     "scratch_y_bytes": 4096
   },
-  "upstream_pr_changed": false
+  "upstream_pr_changed": false,
+  "previous_installed_firmware_sha256": "e9e2b88cbcbc5301fa1e49aa1de143732b3118db48f56b5b408f08f4d93010eb",
+  "physical_flash": {
+    "firmware_backup_sha256": "af2c698d3ba2543cc5093132520e70999e52867eebccb2470fa6aceab7506e22",
+    "firmware_backup_verified": true,
+    "firmware_readback_verified": true,
+    "firmware_flash_utc": "2026-10-30T13:49:53.708978+00:00"
+  },
+  "hardware_results": {
+    "date": "2026-10-30",
+    "firmware_commit": "4afc5abe1a78321be777435e2a94674b690a8e4a",
+    "firmware_uf2_sha256": "cfaa1629d7ac3a49475c8798086c4b21eb3047f689daa3730ebfc8cf2401a2f6",
+    "firmware_readback_verified": true,
+    "full_backup_readback_verified": true,
+    "backup_sha256": "af2c698d3ba2543cc5093132520e70999e52867eebccb2470fa6aceab7506e22",
+    "device": "SanDisk Cruzer Mini 512 MB FAT32 (user reported; all three prior full-byte file baselines matched)",
+    "startup": "First explicit USB query already detected one USB disk; exact insertion timing unconfirmed. No initial USB fault. Only root mounted in ELKS.",
+    "read_only_mount": "passed",
+    "existing_file_baselines_matched": [
+      {
+        "bytes": 8660,
+        "sha256": "93174bba1ca16281826bf7e5f8aad598d53cc21df2ba4672913778b5191d97a2"
+      },
+      {
+        "bytes": 8720,
+        "sha256": "460ef3cd781d84c7fd21f53f226ec84455c258da955913071866318dc62b6c01"
+      },
+      {
+        "bytes": 35508,
+        "sha256": "4ce20a1a75b56d3547b42c166518366630921f09caf22c7e74fb877f0b0294bb"
+      }
+    ],
+    "baseline_note": "Verified before guarded attempt; no post-fault media readback attempted.",
+    "single_attempt": "mkdir /mnt/usb/PMLS1030",
+    "test_name_absent": true,
+    "exit_status": 1,
+    "native_error": "/mnt/usb/PMLS1030: cannot create directory",
+    "first_observation": "obs=wait os=255 why=0 ms=0",
+    "terminal_observation": "obs=none os=255 why=0 ms=30000",
+    "original_fault": "op=35 f=6 s=255 r=0 d=0",
+    "frozen_timeout_lines": [
+      "USB timeout op=35 tag=2381 stage=3 submit=1",
+      "USB pending ep=81 want=13 deadline_ms=2000",
+      "USB last stage=1 event=0 ep=01 got=31",
+      "HCD slot=1 act=1 rem=0 got=0 sof=240/191 v=1",
+      "HCD bc=0000740d ec=a8000200 poll=00000006 addr=00010001 sc=20008604",
+      "HCD ss=50000205 bs=00000000 irq=00000000 ie=0000047b sm=00000109"
+    ],
+    "timeout_lines_unchanged": true,
+    "interpretation": "The normal two-second initial clean cache-flush timeout was followed by an additional 30-second observation window. No completion or detach was recorded before expiry. This does not prove the drive received the command or that no physical bus reply occurred; callback delivery is observed. Original HCD evidence is frozen at the initial timeout, not a terminal snapshot. No unsupported-command or cache-policy conclusion is established.",
+    "sector_write_submission": "None inferred from audited pre-write guard and dirty=0, not a physical bus trace",
+    "write_retries": 0,
+    "usb_unmounted": true,
+    "sd_unmounted": true,
+    "elks_left_running": true,
+    "fault_latched_until_mcu_restart": true,
+    "initial_stack": {
+      "firmware_used": 1768,
+      "firmware_reserved": 4096,
+      "kernel_used": 418,
+      "kernel_reserved": 700,
+      "flags": 0,
+      "invalid": 0,
+      "samples": 6417
+    },
+    "fault_path_stack_peak": "unmeasured",
+    "next_step": "Audit the native host controller status-transfer path and design a controlled comparison that distinguishes device non-response from lost host completion; keep writes blocked. Do not retry in this latched session.",
+    "screenshot": {
+      "source": "Actual PPC512 B800 text video memory rendered with BIOS font; live mount/pmstat, explicitly saved native error, summary from verified baseline",
+      "video_sha256": "248f4fe57ae714c5d1afa23f340d2db4155a9ae027688b716f5836a9e877d681",
+      "font_sha256": "ddad441c6fd10808a4e94040609cd5471704eb59d18c5fcf6059c028fa8ccae6",
+      "png_sha256": "7b184a74950a23ac40ea21d649784b8bd7479a003d34b5df4e562ca8e7dcd0c7"
+    }
+  }
 }

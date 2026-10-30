@@ -1,7 +1,7 @@
 # Bounded late status observation
 
 I built this follow-up to the [SanDisk controller snapshot](USB-HOST-STATE.md#ppc512-controller-result--30-october-2026).
-**Host tests and builds pass; hardware testing is pending. Read/write release remains blocked.**
+**Host tests and builds pass. The PPC512 test recorded no completion during the extra 30-second window. Read/write release remains blocked.**
 
 ## Behavior
 
@@ -62,11 +62,39 @@ ELKS kernel and `pmstat --usb` display the new suffix without an update.
 - Flash 4,812,568 bytes; RAM 382,088 bytes. Feature-disabled UF2 remains identical
   to the established baseline. [Source and artifact manifest](USB-LATE-STATUS.json).
 
-## Hardware plan
+## PPC512 result — 30 October 2026
 
-After a fresh verified full backup and flash, I will boot ELKS, verify the three
-SanDisk file baselines read-only, confirm a fresh name is absent, and make one
-guarded mkdir attempt after read/write remount. The usual two-second error remains.
-I will query cached status during/after the additional observation window, save
-the final result and a screenshot, then unmount. There will be no write retry,
-reset or media change during observation. The upstream metadata draft PR is unchanged.
+I saved and readback-verified a full recovery image, flashed and verified this
+candidate, then tested with the existing ELKS kernel. The first USB query already
+reported one disk; exact insertion timing is unconfirmed. All three saved SanDisk
+file baselines matched in a read-only mount.
+
+After confirming `PMLS1030` was absent, I remounted USB read/write and made one
+`mkdir /mnt/usb/PMLS1030` attempt. It failed at the initial clean flush guard.
+The first observation was `obs=wait`; the final fault line was:
+
+```text
+?USB fault op=35 f=6 s=255 r=0 d=0 obs=none os=255 why=0 ms=30000
+```
+
+No completion or detach was recorded before the additional 30-second window
+expired. The original six timeout/controller lines remained identical. This
+makes a reply delivered just beyond the normal deadline less likely; it does not
+prove the device received the command or that no physical bus reply occurred.
+The observer measures software callback delivery. The controller snapshot is
+still the original two-second snapshot, not a new reading at expiry. The raw
+controller state was `00000109`; no unsupported symbolic interpretation is used.
+
+Writes stayed blocked. No retry, reset or media change was made during observation.
+The audited guard and `d=0` indicate that no sector write was submitted; this is
+a software inference, not evidence from a physical bus trace. I unmounted USB and left ELKS running; the fault remains
+latched until MCU restart. There was no post-fault media readback. Runtime stack
+use before the fault was 1768/4096 bytes for firmware and 418/700 for the kernel;
+the fault-path peak remains unmeasured.
+
+The next investigation is the native controller status-transfer path and a
+controlled comparison to distinguish device non-response from lost host
+completion. The upstream metadata draft PR is unchanged.
+
+[Hardware result and screenshot](https://github.com/l00nix/picomem-elks/blob/codex/usb-sync-lifetime/docs/USB-SYNC-LIFETIME.md#sandisk-late-status-result)
+· [Full evidence manifest](USB-LATE-STATUS.json).
